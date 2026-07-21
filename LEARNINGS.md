@@ -55,6 +55,65 @@ and pick every compatible version myself. That is what Spring with XML looked li
 which is what I actually did at Mapfre from 2013 to 2018. I have worked both sides of
 this line.
 
+### Defensive copies: `final` protects the reference, not the contents
+
+A record gives me `final` fields. That is not the same as immutable.
+
+```java
+Map<String, String> fields = new HashMap<>();
+fields.put("diagnosis", "fracture");
+
+var doc = new Document(..., fields, ...);
+
+fields.put("approved", "true");     // I mutate MY map, afterwards
+doc.fields();                       // → { diagnosis, approved }  the document changed
+```
+
+Nobody touched the document. Both variables point at **the same map in memory** — I never
+passed a copy, I passed the address.
+
+**Analogy — Google Doc vs PDF:**
+
+| Passing the map as-is | Sharing the Google Doc **link**. One document, two viewers. I edit, what they see changes. |
+|---|---|
+| `Map.copyOf(fields)` | Exporting a **PDF** and sending that. They get their own frozen copy. I keep editing mine; theirs does not move. And they cannot edit it either. |
+
+`final` means *"this link cannot be replaced with another link"*. It says nothing about the
+document the link points to. Protecting the reference does not protect the contents.
+
+**The fix, last line of the compact constructor:**
+
+```java
+public Document {
+    // ... validations ...
+    fields = Map.copyOf(fields);
+}
+```
+
+`Map.copyOf` does two things: copies the contents into a new map (breaking the link to the
+original) and returns an **immutable** map (`put` throws `UnsupportedOperationException`).
+
+**The real bug this prevents** — reusing a variable, which is the most ordinary thing in the world:
+
+```java
+Map<String, String> f = new HashMap<>();
+
+f.put("diagnosis", "fracture");
+var doc1 = new Document(..., f, ...);      // patient A
+
+f.clear();
+f.put("diagnosis", "sprain");
+var doc2 = new Document(..., f, ...);      // patient B
+```
+
+Without `copyOf`, `doc1` and `doc2` share one map and **both end up saying "sprain"**.
+Patient A's diagnosis is gone, and `doc1` was never touched. In a healthcare system that is
+an incident, and no test that merely constructs one document will ever catch it.
+
+**Second thing I learned here:** a compact constructor can **reassign** a component
+(`fields = ...`). It is not only for validation — it is also the place to normalize: trim a
+string, upper-case a code, or freeze a collection.
+
 ---
 
 ## Day 1 — Build, toolchains, dependency management
@@ -90,6 +149,25 @@ If I compile with Java 21, the generated classes use major version 65. Running t
 **Observed:**
 
 **What I got wrong:**
+
+**Takeaway:**
+
+**How I'd say it in an interview (≤90s):**
+
+---
+
+## Day 2 — Java 21 domain modelling
+
+### 3. Implementing a sealed interface without being in `permits`
+
+**Setup:** wrote `WeekendBlock`, a record declaring `implements Rule`, but did not add it
+to the `permits` clause of `Rule`.
+
+**Prediction:**
+
+**Observed:** the build failed, and the error appeared in **`WeekendBlock.java`** — the file
+of the class trying to join the hierarchy — not in `Rule.java`. The compiler rejected it for
+not being listed in the `permits` clause.
 
 **Takeaway:**
 
