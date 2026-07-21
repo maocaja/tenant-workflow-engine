@@ -23,6 +23,7 @@ public record AuditEvent(
                     "actor cannot be null or blank"
             );
         }
+
     }
 
 
