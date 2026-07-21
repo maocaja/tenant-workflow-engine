@@ -13,6 +13,7 @@ public record Document(
         BigDecimal amount,
         Currency currency,
         DocumentStatus status,
+        int signatures,
         Map<String, String> fields,
         Instant createdAt
 ) {
@@ -54,6 +55,11 @@ public record Document(
         if(reference == null || reference.isBlank())
             throw new IllegalArgumentException(
                     "reference cannot be null or blank"
+            );
+
+        if (signatures < 0)
+            throw new IllegalArgumentException(
+                    "signatures cannot be negative"
             );
 
         fields = Map.copyOf(fields);

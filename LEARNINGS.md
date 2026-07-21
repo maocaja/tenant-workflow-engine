@@ -114,6 +114,39 @@ an incident, and no test that merely constructs one document will ever catch it.
 (`fields = ...`). It is not only for validation — it is also the place to normalize: trim a
 string, upper-case a code, or freeze a collection.
 
+### Record patterns, and `yield` vs `return`
+
+A **type pattern** (Java 16) binds the object; a **record pattern** (Java 21) takes it apart:
+
+```java
+case RequiredField rf            -> ... rf.fieldName() ...     // type pattern
+case RequiredField(String name)  -> ... name ...               // record pattern
+```
+
+The components are bound directly in the `case` — no intermediate variable, no accessor call.
+
+**`yield`:** a switch used as an *expression* has to produce a value in every branch. With a
+single-expression arrow (`->`) that is implicit. With a block `{ }` it has to be stated:
+
+```java
+return  →  exits the whole METHOD
+yield   →  returns the value of THIS switch branch
+```
+
+**No `default` branch, deliberately.** Over a sealed interface the compiler already knows the
+complete set. A `default` would silently swallow any variant added later — which is exactly the
+failure the sealed hierarchy exists to prevent.
+
+### `BigDecimal`: `compareTo`, never `equals`
+
+```java
+new BigDecimal("2.0").equals(new BigDecimal("2.00"))     → false
+new BigDecimal("2.0").compareTo(new BigDecimal("2.00"))  → 0
+```
+
+`equals` compares value **and scale**. `2.0` and `2.00` are the same amount of money with
+different scale, so `equals` says they differ. With money that is a silent bug.
+
 ---
 
 ## Day 1 — Build, toolchains, dependency management
@@ -168,6 +201,45 @@ to the `permits` clause of `Rule`.
 **Observed:** the build failed, and the error appeared in **`WeekendBlock.java`** — the file
 of the class trying to join the hierarchy — not in `Rule.java`. The compiler rejected it for
 not being listed in the `permits` clause.
+
+**Takeaway:**
+
+**How I'd say it in an interview (≤90s):**
+
+---
+
+### 4. Putting a fact about the document inside the rule
+
+**Setup:** `ApprovalGate` needs to compare "how many signatures are required" against "how many
+signatures this document has". I added **both** as components of `ApprovalGate`.
+
+**Observed:** the compiler caught it, though not for the conceptual reason:
+
+```
+RuleEvaluator.java:27: error: incorrect number of nested patterns
+            case ApprovalGate(int requiredSignatures) ->
+                 ^
+  required: int,int
+  found: int
+```
+
+The record pattern in the switch no longer matched the record's arity.
+
+**What I got wrong:** I mixed two things that live on different sides and change at different
+rates.
+
+```
+ApprovalGate  =  the client's CONFIGURATION  →  one instance, shared
+Document      =  one concrete document       →  thousands, each different
+```
+
+A rule is one per client. Signature counts vary per document — FAC-001 has 2, FAC-002 has 0.
+They cannot live in the rule without creating a new rule instance per document, which destroys
+the whole "rules are configuration" idea.
+
+**Rule of thumb I take from this:**
+- Does the value change per document? → it belongs on `Document`
+- Is it the same for every document of that client? → it belongs on the `Rule`
 
 **Takeaway:**
 
