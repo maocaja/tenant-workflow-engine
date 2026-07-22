@@ -64,4 +64,9 @@ public record Document(
 
         fields = Map.copyOf(fields);
     }
+
+    public Document withStatus(DocumentStatus newStatus) {
+        return new Document(id, tenantId, reference, amount, currency,
+                newStatus, signatures, fields, createdAt);
+    }
 }

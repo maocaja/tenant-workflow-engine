@@ -137,6 +137,106 @@ yield   →  returns the value of THIS switch branch
 complete set. A `default` would silently swallow any variant added later — which is exactly the
 failure the sealed hierarchy exists to prevent.
 
+### `IllegalArgumentException` vs `IllegalStateException`
+
+Two different blames, not interchangeable:
+
+```java
+findById(id).orElseThrow(() -> new IllegalArgumentException("document not found: " + id));
+if (document.status() != DRAFT) throw new IllegalStateException("only DRAFT can be submitted");
+```
+
+- **IllegalArgumentException** → the *caller* passed something wrong (an id that doesn't exist).
+- **IllegalStateException** → the *object* is in a state that doesn't allow this operation
+  (already approved, can't be submitted again).
+
+Argument = the input is bad. State = the timing is bad. Picking the right one tells the caller
+whether to fix what they sent or whether they called at the wrong moment.
+
+`orElseThrow` is the "if it doesn't exist, fail" in one line: hands back the value if the
+`Optional` is present, throws if it's empty.
+
+### Why self-invocation breaks `@Transactional` (the proxy mechanism)
+
+`@Transactional` is implemented with a **proxy** — Spring injects a wrapper around the bean, not
+the bean itself. The transaction logic (open, commit, rollback) lives in the **wrapper**. The
+bean itself knows nothing about transactions.
+
+```
+otherBean → PROXY.submit()        ← proxy INTERCEPTS: opens the transaction
+                ↓
+           realBean.submit()      ✅ transaction active
+```
+
+Self-invocation — a method calling another method on the same bean with `this`:
+
+```
+realBean.submit() {
+    this.writeAudit();     ← goes straight object-to-object, never reaches the proxy
+        ↓
+    writeAudit()           ❌ proxy never saw the call → no transaction
+}
+```
+
+**The exact why:** `this` is the real object, not the proxy. A `this.method()` call never leaves
+the object, so the proxy is not in the path to intercept it. The annotation is there, but the
+proxy — the only thing that reads it — was bypassed. It is NOT that "the proxy can't see the
+annotation"; it's that the *call* never passes through the proxy.
+
+**Fixes:** move the transactional method to a separate bean (the call then goes through *its*
+proxy); self-inject the proxy; or use `TransactionTemplate` (programmatic, no proxy involved).
+
+**Interview line:**
+> "Spring implements `@Transactional` with a proxy that wraps the bean. The transaction lives in
+> the proxy. When a method calls another method on the same bean with `this`, the call goes
+> straight object-to-object and never passes through the proxy — so the annotation is there but
+> nothing applies it. The fix is to move the transactional method to a separate bean."
+
+### Why an audit trail needs `REQUIRES_NEW`, not just `@Transactional`
+
+Two writes in a row, no transaction around them → each is independent, one can land and the
+other not:
+
+```java
+auditRepository.save(...);              // write 1: "document moved to SUBMITTED"
+documentRepository.save(withStatus());  // write 2: fails, DB went down
+```
+
+Result: an audit event saying something happened, and the document still in DRAFT. **The audit
+lies.** In an audit system that is the exact failure that cannot happen.
+
+`@Transactional` fixes *that* case — the two writes become one operation, both land or neither.
+But it creates the opposite problem:
+
+```
+Scenario A — technical failure (DB down):   both writes should roll back.  @Transactional ✅
+Scenario B — business rejection:            I want to record "rejected: amount exceeds limit"
+                                            → if it's all one transaction and the reject rolls
+                                              back, the audit of the rejection is erased too.  ❌
+```
+
+An audit that only records successes is not an audit — it's a log of the happy path.
+
+**The combination:**
+
+```
+@Transactional               on the business method  → covers A (both roll back together)
+@Transactional(REQUIRES_NEW)  on the audit write      → covers B (audit survives the rollback)
+```
+
+**The precise mechanism:** `REQUIRES_NEW` **commits the audit in its own transaction, before**
+the business transaction decides whether to roll back. So it's not that the rollback "leaves the
+audit alone" — the audit already left the business transaction and was committed, so by the time
+the rollback happens there is nothing of it left inside to revert.
+
+**Where this lives:** `@Transactional` belongs in the **infrastructure** layer, not in
+`SubmitDocument`. The application layer stays Spring-free (the `grep` guard). Order of work:
+interfaces → JPA adapters + a real DB → only then transactions, because `@Transactional` needs a
+real database to have anything to commit or roll back.
+
+**My anchor:** MOC has an append-only audit trail in a regulated domain — this is exactly the
+`REQUIRES_NEW` case, not theory.
+
 ### `BigDecimal`: `compareTo`, never `equals`
 
 ```java

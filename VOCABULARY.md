@@ -35,11 +35,25 @@ Rules:
 
 ---
 
+## 3. Transactions
+
+| English | Español | Sentence I'd say |
+|---|---|---|
+| proxy | proxy (el envoltorio que Spring pone alrededor del bean) | |
+| to intercept a call | interceptar una llamada | |
+| self-invocation | autoinvocación (`this.metodo()`) | |
+| to bypass the proxy | esquivar el proxy | |
+| propagation | propagación | |
+| REQUIRES_NEW | transacción independiente que sobrevive al rollback | |
+| to roll back / rollback | revertir / reversión | |
+| append-only audit trail | registro de auditoría de solo adición | |
+
+---
+
 ## Coming up
 
 Sections get added when we reach the topic — not before:
 
-- Transactions (day 1, later today)
 - Persistence & JPA (day 2)
 - Testing (day 2)
 - Messaging & distributed systems (day 3)
