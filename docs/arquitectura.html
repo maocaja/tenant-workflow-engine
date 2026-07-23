@@ -67,6 +67,7 @@
   pre.code { background:var(--code-bg); border:1px solid var(--line); border-radius:8px; padding:0.9rem 1rem; overflow-x:auto; font-family:var(--mono); font-size:0.82rem; color:var(--ink); line-height:1.55; margin:1rem 0 0; }
   .muted-foot { margin-top:3.5rem; padding-top:1.4rem; border-top:1px solid var(--line); color:var(--faint); font-size:0.82rem; font-family:var(--mono); }
   a { color:var(--accent); }
+  .fig svg, .fig svg * { box-sizing: content-box; }
 </style>
 </head>
 <body>
@@ -91,7 +92,7 @@
     <figure>
       <div class="fig">
 <pre class="mermaid">
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
+%%{init: {'theme':'base','themeVariables':{'fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
 flowchart TB
   subgraph INFRA["INFRAESTRUCTURA · Spring"]
     REST["REST · DocumentController"]
@@ -135,7 +136,7 @@ flowchart TB
     <figure>
       <div class="fig">
 <pre class="mermaid">
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573'}}}%%
+%%{init: {'theme':'base','themeVariables':{'fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573'}}}%%
 stateDiagram-v2
   [*] --> DRAFT
   DRAFT --> SUBMITTED: enviar · reglas(SUBMIT) pasan
@@ -159,7 +160,7 @@ stateDiagram-v2
     <figure>
       <div class="fig">
 <pre class="mermaid">
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
+%%{init: {'theme':'base','themeVariables':{'fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
 flowchart LR
   subgraph WF["workflow-service"]
     direction TB
@@ -253,7 +254,7 @@ flowchart LR
     <figure>
       <div class="fig">
 <pre class="mermaid">
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
+%%{init: {'theme':'base','themeVariables':{'fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
 flowchart LR
   U["Cliente / API"] --> ALB["Application<br/>Load Balancer"]
   ALB --> E1["ECS Fargate<br/>workflow-service"]

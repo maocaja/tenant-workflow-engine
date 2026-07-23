@@ -50,6 +50,7 @@
   .muted-foot { margin-top:3.4rem; padding-top:1.3rem; border-top:1px solid var(--line); color:var(--faint); font-size:0.82rem; font-family:var(--mono); }
   a { color:var(--accent); }
   .path { font-family:var(--mono); font-size:0.82em; color:var(--accent); background:var(--accent-soft); padding:0.08em 0.4em; border-radius:4px; }
+  .fig svg, .fig svg * { box-sizing: content-box; }
 </style>
 </head>
 <body>
@@ -82,7 +83,7 @@
     <figure>
       <div class="fig">
 <pre class="mermaid">
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
+%%{init: {'theme':'base','themeVariables':{'fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
 flowchart TB
   actor["Llamador de la API<br/>«Persona / sistema cliente»"]
   sys["<b>Plataforma de Workflow</b><br/>«Sistema de Software»<br/>Aprueba facturas según reglas por<br/>cliente, guarda auditoría inmutable,<br/>emite eventos de aprobación"]
@@ -108,7 +109,7 @@ flowchart TB
     <figure>
       <div class="fig">
 <pre class="mermaid">
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
+%%{init: {'theme':'base','themeVariables':{'fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
 flowchart TB
   actor["Llamador de la API<br/>«Persona»"]
   subgraph plat["Plataforma de Workflow"]
@@ -147,7 +148,7 @@ flowchart TB
     <figure>
       <div class="fig">
 <pre class="mermaid">
-%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
+%%{init: {'theme':'base','themeVariables':{'fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
 flowchart TB
   subgraph wf["workflow-service"]
     direction TB
