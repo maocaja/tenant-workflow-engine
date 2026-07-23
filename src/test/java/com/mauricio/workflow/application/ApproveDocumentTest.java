@@ -24,10 +24,10 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class SubmitDocumentTest {
+class ApproveDocumentTest {
 
     private static final Currency COP = Currency.getInstance("COP");
-    private static final Instant NOW = Instant.parse("2026-07-22T10:00:00Z");
+    private static final Instant NOW = Instant.parse("2026-07-23T10:00:00Z");
     private static final UUID TENANT = UUID.randomUUID();
 
     private final FakeDocumentRepository documents = new FakeDocumentRepository();
@@ -35,95 +35,81 @@ class SubmitDocumentTest {
     private final StubTenantRules rules = new StubTenantRules();
     private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
-    private final SubmitDocument submitDocument = new SubmitDocument(
+    private final ApproveDocument approveDocument = new ApproveDocument(
             documents, rules, audit, new RuleEvaluator(), clock);
 
-    private Document draft(int signatures, Map<String, String> fields) {
+    private Document submitted(int signatures) {
         return new Document(
                 UUID.randomUUID(),
                 TENANT,
                 "FAC-001",
                 new BigDecimal("100"),
                 COP,
-                DocumentStatus.DRAFT,
+                DocumentStatus.SUBMITTED,
                 signatures,
-                fields,
+                Map.of(),
                 NOW
         );
     }
 
     @Nested
-    @DisplayName("when the rules pass")
+    @DisplayName("when the approval rules pass")
     class RulesPass {
 
         @Test
-        @DisplayName("moves the document to SUBMITTED and persists it")
-        void transitionsToSubmitted() {
-            Document doc = draft(0, Map.of("diagnostico", "S72.0"));
+        @DisplayName("moves the document to APPROVED and persists it")
+        void transitionsToApproved() {
+            Document doc = submitted(2);
             documents.store(doc);
-            rules.set(new RequiredField("diagnostico"));
+            rules.set(new ApprovalGate(2));
 
-            Document result = submitDocument.submit(doc.id(), "ana");
+            Document result = approveDocument.approve(doc.id(), "beto");
 
-            assertThat(result.status()).isEqualTo(DocumentStatus.SUBMITTED);
+            assertThat(result.status()).isEqualTo(DocumentStatus.APPROVED);
             assertThat(documents.findById(doc.id()))
                     .get()
                     .extracting(Document::status)
-                    .isEqualTo(DocumentStatus.SUBMITTED);
+                    .isEqualTo(DocumentStatus.APPROVED);
         }
 
         @Test
-        @DisplayName("writes a DRAFT to SUBMITTED audit event with no reason")
+        @DisplayName("writes a SUBMITTED to APPROVED audit event with no reason")
         void writesAuditWithoutReason() {
-            Document doc = draft(0, Map.of());
+            Document doc = submitted(2);
             documents.store(doc);
+            rules.set(new ApprovalGate(2));
 
-            submitDocument.submit(doc.id(), "ana");
+            approveDocument.approve(doc.id(), "beto");
 
             AuditEvent event = audit.single();
             assertThat(event.documentId()).isEqualTo(doc.id());
-            assertThat(event.from()).isEqualTo(DocumentStatus.DRAFT);
-            assertThat(event.to()).isEqualTo(DocumentStatus.SUBMITTED);
-            assertThat(event.actor()).isEqualTo("ana");
+            assertThat(event.from()).isEqualTo(DocumentStatus.SUBMITTED);
+            assertThat(event.to()).isEqualTo(DocumentStatus.APPROVED);
+            assertThat(event.actor()).isEqualTo("beto");
             assertThat(event.reason()).isNull();
             assertThat(event.occurredAt()).isEqualTo(NOW);
         }
     }
 
     @Nested
-    @DisplayName("when a rule fails")
+    @DisplayName("when an approval rule fails")
     class RuleFails {
 
         @Test
         @DisplayName("moves the document to REJECTED and records the violation as the reason")
         void transitionsToRejected() {
-            Document doc = draft(0, Map.of());
+            Document doc = submitted(0);
             documents.store(doc);
-            rules.set(new RequiredField("diagnostico"));
+            rules.set(new ApprovalGate(2));
 
-            Document result = submitDocument.submit(doc.id(), "ana");
+            Document result = approveDocument.approve(doc.id(), "beto");
 
             assertThat(result.status()).isEqualTo(DocumentStatus.REJECTED);
 
             AuditEvent event = audit.single();
+            assertThat(event.from()).isEqualTo(DocumentStatus.SUBMITTED);
             assertThat(event.to()).isEqualTo(DocumentStatus.REJECTED);
-            assertThat(event.reason()).contains("diagnostico");
-        }
-
-        @Test
-        @DisplayName("joins every violation into a single reason")
-        void joinsAllViolations() {
-            Document doc = draft(0, Map.of());
-            documents.store(doc);
-            rules.set(
-                    new RequiredField("diagnostico"),
-                    new ApprovalGate(2));
-
-            submitDocument.submit(doc.id(), "ana");
-
-            assertThat(audit.single().reason())
-                    .contains("diagnostico")
-                    .contains("2");
+            assertThat(event.reason()).contains("2").contains("0");
         }
     }
 
@@ -136,29 +122,29 @@ class SubmitDocumentTest {
         void unknownDocument() {
             UUID missing = UUID.randomUUID();
 
-            assertThatThrownBy(() -> submitDocument.submit(missing, "ana"))
+            assertThatThrownBy(() -> approveDocument.approve(missing, "beto"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining(missing.toString());
         }
 
         @Test
-        @DisplayName("refuses to submit a document that is not a DRAFT")
-        void notADraft() {
-            Document doc = draft(0, Map.of()).withStatus(DocumentStatus.SUBMITTED);
+        @DisplayName("refuses to approve a document that is not SUBMITTED")
+        void notSubmitted() {
+            Document doc = submitted(2).withStatus(DocumentStatus.DRAFT);
             documents.store(doc);
 
-            assertThatThrownBy(() -> submitDocument.submit(doc.id(), "ana"))
+            assertThatThrownBy(() -> approveDocument.approve(doc.id(), "beto"))
                     .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("SUBMITTED");
+                    .hasMessageContaining("DRAFT");
         }
 
         @Test
         @DisplayName("writes no audit event when the transition is refused")
         void noAuditOnRefusal() {
-            Document doc = draft(0, Map.of()).withStatus(DocumentStatus.APPROVED);
+            Document doc = submitted(2).withStatus(DocumentStatus.APPROVED);
             documents.store(doc);
 
-            assertThatThrownBy(() -> submitDocument.submit(doc.id(), "ana"))
+            assertThatThrownBy(() -> approveDocument.approve(doc.id(), "beto"))
                     .isInstanceOf(IllegalStateException.class);
 
             assertThat(audit.all()).isEmpty();
