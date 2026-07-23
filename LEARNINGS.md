@@ -341,9 +341,32 @@ the whole "rules are configuration" idea.
 - Does the value change per document? → it belongs on `Document`
 - Is it the same for every document of that client? → it belongs on the `Rule`
 
-**Takeaway:**
+**Takeaway:** the real mechanism is **data that changes at different rates belongs on
+different sides.** A `Rule` is shared configuration — one instance per client, read by every
+document that client submits. `signatures` is per-document state — a different value on every
+document. Fusing them forces a *new rule instance per document*, which collapses the whole
+"rules are configuration, not code" design back into per-document logic. The rule stays the
+strategy (*how many signatures are required*); the document carries the fact (*how many it
+has*); the evaluator compares them.
+
+What made this cheap to catch was accidental but worth naming: the mistake surfaced as a
+**compile error, not a runtime bug**. The record pattern `case ApprovalGate(int required)`
+is tied to the record's arity, so the moment I added a second component the switch stopped
+compiling. The type system turned a modelling error — mixing configuration with state — into
+`javac` refusing to build. I didn't design that guard on purpose, but sealed interface +
+record patterns gave it to me for free.
 
 **How I'd say it in an interview (≤90s):**
+My rules are data, one row per client — a rule is shared configuration. I almost put the
+number of signatures a document *has* inside the `ApprovalGate` rule, next to the number it
+*requires*. That's wrong: the requirement is the same for every document of that client, but
+the count of signatures changes per document. Putting per-document state in the rule would
+force a new rule instance for every document and destroy the "rules are configuration" idea.
+The heuristic I use now is: if a value changes per document it lives on the document; if it's
+the same for every document of that client it lives on the rule. And the thing that caught me
+wasn't a test — it was the compiler. Because `Rule` is a sealed interface matched with record
+patterns, adding a second field to the record broke the switch's arity and the build failed.
+The type system enforced the separation of concerns for me.
 
 ---
 
