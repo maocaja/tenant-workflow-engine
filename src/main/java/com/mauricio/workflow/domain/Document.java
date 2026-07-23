@@ -69,4 +69,9 @@ public record Document(
         return new Document(id, tenantId, reference, amount, currency,
                 newStatus, signatures, fields, createdAt);
     }
+
+    public Document withSignatures(int newSignatures) {
+        return new Document(id, tenantId, reference, amount, currency,
+                status, newSignatures, fields, createdAt);
+    }
 }
