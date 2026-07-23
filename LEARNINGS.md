@@ -487,6 +487,55 @@ small and bounded, so the join fetch is the right call.
 
 ---
 
+## Day 3 — Transaction propagation
+
+### 7. Making the audit survive a business rollback with REQUIRES_NEW
+
+**Setup:** Annotate `JpaAuditRepository.save` with `@Transactional(propagation = REQUIRES_NEW)`
+so the audit commits in its own transaction, suspended from the caller's. Then, inside a
+`TransactionTemplate` (the outer "business" transaction): write an audit for a committed
+DRAFT document, change the document to SUBMITTED, and throw — rolling the outer transaction
+back. Assert what remains in the database.
+
+**Prediction:** (mine — revisit in the study session)
+- The document change is **reverted** → still DRAFT (it lived in the outer tx that rolled back).
+- The audit row **survives** → present (REQUIRES_NEW committed it in its own tx before the
+  rollback happened). If the audit were plain `REQUIRED`, it would join the outer tx and be
+  erased too.
+
+**Observed:** test green. After the outer `TransactionTemplate` threw and rolled back, the
+document was still `DRAFT` (the `withStatus(SUBMITTED)` update reverted) and exactly one new
+audit row was present for that document. Prediction held on both counts.
+
+**Takeaway:** propagation is about *transaction boundaries*, not about the annotation being
+"on" or "off". `REQUIRED` (the default) means "join the caller's transaction if there is one" —
+so an audit written inside the business transaction shares its fate and is erased on rollback.
+`REQUIRES_NEW` means "suspend the caller's transaction and run in a brand-new one that commits
+independently". The precise mechanism for why the audit survives: it is *not* that the rollback
+"spares" the audit — the audit already left the business transaction and was committed to the
+database in its own transaction, so by the time the outer rollback runs there is nothing of it
+left inside to revert. The trade-off to name: this is the right choice for auditing a
+*decision* (append-only truth about what was decided), but it means a "moved to SUBMITTED"
+audit can commit even if the subsequent business save fails — so what you audit with
+REQUIRES_NEW should be the decision/attempt, not a claim about final state. Two dangers this
+also surfaces: self-invocation (calling the REQUIRES_NEW method through `this` bypasses the
+proxy, so no new transaction is created — see the concepts note), and connection exhaustion
+(the new tx borrows a *second* pooled connection while the first is suspended).
+
+**How I'd say it in an interview (≤90s):**
+An audit trail has to record that a decision was made even if the business operation that
+triggered it rolls back. If the audit write joins the same transaction — propagation REQUIRED,
+the default — a rollback erases the audit along with the business change, so you end up with an
+audit that only ever records successes. The fix is REQUIRES_NEW on the audit write: it suspends
+the outer transaction and commits the audit in its own, so it's already on disk before the
+outer transaction decides to roll back. I proved it with a test — force a rollback after
+writing the audit, and afterwards the document change is gone but the audit row is there. Two
+gotchas I'd mention: it only works if the call goes through the Spring proxy, so a
+self-invocation inside the same bean silently does nothing; and the suspended transaction holds
+its connection while the new one borrows a second, so under load you can exhaust the pool.
+
+---
+
 <!--
 TEMPLATE — copy this block for each new experiment.
 
