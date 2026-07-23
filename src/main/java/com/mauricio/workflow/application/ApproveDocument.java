@@ -11,7 +11,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public class SubmitDocument {
+public class ApproveDocument {
 
     private final DocumentRepository documentRepository;
     private final TenantRules tenantRules;
@@ -19,11 +19,11 @@ public class SubmitDocument {
     private final RuleEvaluator ruleEvaluator;
     private final Clock clock;
 
-    public SubmitDocument(DocumentRepository documentRepository,
-                          TenantRules tenantRules,
-                          AuditRepository auditRepository,
-                          RuleEvaluator ruleEvaluator,
-                          Clock clock) {
+    public ApproveDocument(DocumentRepository documentRepository,
+                           TenantRules tenantRules,
+                           AuditRepository auditRepository,
+                           RuleEvaluator ruleEvaluator,
+                           Clock clock) {
         this.documentRepository = documentRepository;
         this.tenantRules = tenantRules;
         this.auditRepository = auditRepository;
@@ -31,38 +31,35 @@ public class SubmitDocument {
         this.clock = clock;
     }
 
-    public Document submit(UUID documentId, String actor) {
+    public Document approve(UUID documentId, String actor) {
 
         Document document = documentRepository.findById(documentId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "document not found: " + documentId
                 ));
-        if (document.status() != DocumentStatus.DRAFT) {
+        if (document.status() != DocumentStatus.SUBMITTED) {
             throw new IllegalStateException(
-                    "Only DRAFT can be submitted, was " + document.status());
+                    "Only SUBMITTED can be approved, was " + document.status());
         }
 
-        List<Rule> rules = tenantRules.forTenant(document.tenantId(), Gate.SUBMIT);
+        List<Rule> rules = tenantRules.forTenant(document.tenantId(), Gate.APPROVE);
 
-        // evalua todas, junta las que fallaron
         String violations = rules.stream()
                 .map(rule -> ruleEvaluator.evaluate(rule, document))
                 .flatMap(Optional::stream)
                 .collect(Collectors.joining(", "));
 
-        // decide el estado
         boolean rejected = !violations.isEmpty();
 
         DocumentStatus newStatus = rejected
                 ? DocumentStatus.REJECTED
-                : DocumentStatus.SUBMITTED;
+                : DocumentStatus.APPROVED;
 
         String reason = rejected ? violations : null;
 
-        // audit antes de guardar el documento
         auditRepository.save(new AuditEvent(
                 document.id(),
-                DocumentStatus.DRAFT,
+                DocumentStatus.SUBMITTED,
                 newStatus,
                 actor,
                 reason,
