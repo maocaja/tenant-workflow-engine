@@ -370,6 +370,74 @@ The type system enforced the separation of concerns for me.
 
 ---
 
+## Day 2 — Scoping rules per transition
+
+### 5. Changing the `TenantRules` port signature to scope rules by gate
+
+**Setup:** "Same path, different rules" means the rules evaluated at *submit* are not the
+same ones evaluated at *approve* — an `ApprovalGate(2)` must not reject a document at submit
+time, because signatures are added *between* SUBMITTED and APPROVED. Introducing
+`enum Gate { SUBMIT, APPROVE }` and changing the port from `forTenant(UUID)` to
+`forTenant(UUID, Gate)`, so each use case asks only for the rules of its own gate.
+
+**Prediction:**
+- Compile: **1 call site breaks** — the line `tenantRules.forTenant(document.tenantId())`
+  in `SubmitDocument`.
+- Behavior: a Client-B document (`ApprovalGate(2)`, 0 signatures) submitted today lands in
+  **REJECTED**; after moving `ApprovalGate` to the APPROVE gate it will land in **SUBMITTED**.
+
+**Observed:**
+- Compile: **2 sites, not 1**, and they surfaced in *two separate compilation phases*.
+  First `compileJava` failed at the **caller**:
+
+  ```
+  SubmitDocument.java:45: error: method forTenant in interface TenantRules
+      cannot be applied to given types;
+  ```
+
+  Gradle stopped there — so the count *looked* like 1. After fixing the caller,
+  `compileTestJava` then failed at the **implementer**, the test fake:
+
+  ```
+  SubmitDocumentTest.java:207: error: StubTenantRules is not abstract and does not
+      override abstract method forTenant(UUID,Gate) in TenantRules
+  ```
+- Behavior: **prediction held.** Before the change, `SubmitDocument` evaluated *every* tenant
+  rule, so a Client-B document (`ApprovalGate(2)`, 0 signatures) failed the gate at submit →
+  **REJECTED** — the latent bug. After scoping, submit asks only for `Gate.SUBMIT` rules, so
+  `ApprovalGate` is no longer in its path and the same document reaches **SUBMITTED**. The gate
+  now bites at *approve* instead: `ApproveDocumentTest` shows a SUBMITTED doc with 2 signatures
+  → APPROVED, and with 0 signatures → REJECTED *at approval*. The rejection didn't disappear —
+  it moved to the transition where signatures actually exist.
+
+**What I got wrong:** I predicted **1 site** and counted only **callers** — the line that
+*invokes* `forTenant`. The second break is a different kind: an **implementer**, the
+`StubTenantRules` fake whose method signature no longer matches the interface. Changing a
+method on an interface breaks both sides of it, not just the call. And I only saw one at a
+time because Gradle compiles `main` before `test` and aborts at the first failing task.
+
+**Takeaway:** an interface is a contract with **two kinds of dependants** — the code that
+*calls* the method (callers) and the code that *implements* it (implementers). A signature
+change breaks both. In production the implementers are the adapters; in tests they are the
+fakes — and the fakes are the ones easy to forget, because I think of tests as "code that
+uses" the port, not "code that implements" it. The compiler finds every one of them, but
+Gradle's task ordering (`compileJava` → `compileTestJava`, abort on first failure) means the
+break count is revealed incrementally, not all at once — so "it compiled after I fixed the
+obvious one" is not the same as "I found them all".
+
+**How I'd say it in an interview (≤90s):**
+I changed one method on a port interface — added a parameter. My instinct was that it breaks
+"the call sites", and I pictured the one line that calls it. But an interface has two kinds
+of dependants: callers and implementers. The caller broke as expected, but so did the test
+fake that *implements* the interface — a break I didn't count, because I think of a fake as
+something that uses the port, not something bound to its exact signature. The other detail:
+Gradle compiles main before test and stops at the first failure, so I only saw one error,
+fixed it, and only then did the second surface. The lesson is that the compiler will find
+every dependant of a contract, but the build tool reveals them one phase at a time — so a
+green compile after fixing the first isn't proof you'd found them all.
+
+---
+
 <!--
 TEMPLATE — copy this block for each new experiment.
 
