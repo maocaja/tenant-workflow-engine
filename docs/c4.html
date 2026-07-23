@@ -51,7 +51,8 @@
 
   figure { margin: 1.3rem 0 0.4rem; }
   .fig { background: var(--fig-bg); border: 1px solid var(--fig-line); border-radius: 10px; padding: 1.4rem 1rem; overflow-x: auto; }
-  .fig pre.mermaid { margin: 0; display: flex; justify-content: center; min-width: 560px; }
+  .fig pre.mermaid { margin: 0; display: block; text-align: center; }
+  .fig svg { max-width: none !important; height: auto; }
   figcaption { font-family: var(--mono); font-size: 0.74rem; color: var(--faint); margin-top: 0.7rem; }
   figcaption b { color: var(--muted); font-weight: 600; }
 
@@ -207,7 +208,7 @@ flowchart TB
 </div>
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });
+mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: false, htmlLabels: true }, state: { useMaxWidth: false } });
 </script>
 </body>
 </html>
