@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>Tenant Workflow Engine — C4 Model</title>
+<style>
+  :root {
+    --paper: #eef2f7; --surface: #ffffff; --ink: #101820; --muted: #566573; --faint: #7c8896;
+    --line: #d7dee6; --accent: #1b5e8f; --accent-soft: #e6eef6;
+    --fig-bg: #f4f7fb; --fig-line: #cdd7e2;
+    --c4-person: #08427b; --c4-container: #2f74b5; --c4-db: #3d6ea5; --c4-ext: #7a8792; --c4-queue: #1f7a6d;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0b1016; --surface: #121b24; --ink: #e7edf3; --muted: #97a3af; --faint: #6b7783;
+      --line: #22303c; --accent: #58a6e6; --accent-soft: #14283a; --fig-bg: #f4f7fb; --fig-line: #cdd7e2;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #eef2f7; --surface: #ffffff; --ink: #101820; --muted: #566573; --faint: #7c8896;
+    --line: #d7dee6; --accent: #1b5e8f; --accent-soft: #e6eef6; --fig-bg: #f4f7fb; --fig-line: #cdd7e2;
+  }
+  :root[data-theme="dark"] {
+    --paper: #0b1016; --surface: #121b24; --ink: #e7edf3; --muted: #97a3af; --faint: #6b7783;
+    --line: #22303c; --accent: #58a6e6; --accent-soft: #14283a; --fig-bg: #f4f7fb; --fig-line: #cdd7e2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: clamp(1.5rem,4vw,4rem) clamp(1.1rem,4vw,2.5rem) 5rem; }
+
+  header.masthead { border-bottom: 2px solid var(--ink); padding-bottom: 1.5rem; margin-bottom: 2.4rem; }
+  .kicker { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin: 0 0 0.9rem; }
+  h1 { font-size: clamp(1.9rem,5vw,2.9rem); line-height: 1.05; margin: 0 0 0.8rem; letter-spacing: -0.02em; text-wrap: balance; font-weight: 680; }
+  .lede { font-size: clamp(1rem,2vw,1.18rem); color: var(--muted); max-width: 62ch; margin: 0; }
+
+  .levels { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1.4rem; font-family: var(--mono); font-size: 0.74rem; }
+  .levels span { padding: 0.25em 0.7em; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); }
+  .levels span.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  section { margin: 3rem 0 0; }
+  .eyebrow { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--faint); display: flex; align-items: baseline; gap: 0.7rem; margin: 0 0 0.4rem; }
+  .eyebrow b { color: var(--accent); font-weight: 600; }
+  h2 { font-size: clamp(1.3rem,3vw,1.7rem); margin: 0 0 0.5rem; letter-spacing: -0.01em; font-weight: 640; }
+  section > p { color: var(--muted); max-width: 68ch; margin: 0.4rem 0 1.1rem; }
+  section > p strong { color: var(--ink); font-weight: 620; }
+
+  figure { margin: 1.3rem 0 0.4rem; }
+  .fig { background: var(--fig-bg); border: 1px solid var(--fig-line); border-radius: 10px; padding: 1.4rem 1rem; overflow-x: auto; }
+  .fig pre.mermaid { margin: 0; display: flex; justify-content: center; min-width: 560px; }
+  figcaption { font-family: var(--mono); font-size: 0.74rem; color: var(--faint); margin-top: 0.7rem; }
+  figcaption b { color: var(--muted); font-weight: 600; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 0.6rem 1.2rem; margin-top: 1.2rem; padding: 1rem 1.2rem; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+  .legend .item { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: var(--muted); }
+  .swatch { width: 15px; height: 15px; border-radius: 3px; flex: none; }
+  .sw-person { background: var(--c4-person); }
+  .sw-container { background: var(--c4-container); }
+  .sw-db { background: var(--c4-db); }
+  .sw-ext { background: var(--c4-ext); }
+  .sw-queue { background: var(--c4-queue); }
+
+  .muted-foot { margin-top: 3.4rem; padding-top: 1.3rem; border-top: 1px solid var(--line); color: var(--faint); font-size: 0.82rem; font-family: var(--mono); }
+  a { color: var(--accent); }
+  .path { font-family: var(--mono); font-size: 0.82em; color: var(--accent); background: var(--accent-soft); padding: 0.08em 0.4em; border-radius: 4px; }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="kicker">C4 Model · Simon Brown notation</p>
+    <h1>Tenant Workflow Engine — C4</h1>
+    <p class="lede">The same system at three zoom levels. Each level answers a different question, for a different reader: the whole system in its world, the runnable pieces inside it, and the parts inside one piece.</p>
+    <div class="levels">
+      <span class="on">1 · Context</span>
+      <span class="on">2 · Container</span>
+      <span class="on">3 · Component</span>
+      <span>4 · Code → the repo itself</span>
+    </div>
+  </header>
+
+  <div class="legend">
+    <span class="item"><span class="swatch sw-person"></span> Person / actor</span>
+    <span class="item"><span class="swatch sw-container"></span> Container (deployable/runnable)</span>
+    <span class="item"><span class="swatch sw-db"></span> Database</span>
+    <span class="item"><span class="swatch sw-queue"></span> Message queue</span>
+    <span class="item"><span class="swatch sw-ext"></span> External system</span>
+  </div>
+
+  <section>
+    <p class="eyebrow"><b>Level 1</b> System Context</p>
+    <h2>The system in its world</h2>
+    <p>The highest zoom: one box for the whole platform, who uses it, and what it talks to. A non-technical stakeholder should understand this. Here: an <strong>API caller</strong> drives documents through the workflow, and the platform <strong>emits approval events</strong> that downstream systems (payments, notifications) consume.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'13px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
+flowchart TB
+  actor["API Caller<br/><span>&laquo;Person / client system&raquo;</span>"]
+  sys["<b>Tenant Workflow Platform</b><br/><span>&laquo;Software System&raquo;</span><br/>Approves billing documents against<br/>per-tenant rules, keeps an immutable<br/>audit trail, emits approval events"]
+  down["Downstream consumers<br/><span>&laquo;Software System&raquo;</span><br/>e.g. payments, notifications"]
+  actor -->|"submits &amp; approves<br/>documents · HTTPS"| sys
+  sys -->|"publishes<br/>DocumentApproved events"| down
+  classDef person fill:#08427b,stroke:#052e56,color:#fff;
+  classDef sys fill:#2f74b5,stroke:#1d4d7c,color:#fff;
+  classDef ext fill:#7a8792,stroke:#59636c,color:#fff;
+  class actor person;
+  class sys sys;
+  class down ext;
+</pre>
+      </div>
+      <figcaption><b>Fig. C4-1</b> — Context. The platform is one black box; detail is deliberately hidden.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>Level 2</b> Containers</p>
+    <h2>The runnable pieces inside the platform</h2>
+    <p>Zoom into the box. A <strong>container</strong> is something that runs and holds state — a service, a database, a queue — each with its technology. This is the most useful view for an engineer: it shows the two services, their <strong>separate databases</strong>, and the <strong>queue with its dead-letter queue</strong>. Notice each service owns its own database — no shared schema.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'13px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
+flowchart TB
+  actor["API Caller<br/><span>&laquo;Person&raquo;</span>"]
+  subgraph plat["Tenant Workflow Platform"]
+    direction TB
+    wf["<b>workflow-service</b><br/><span>&laquo;Spring Boot&raquo;</span><br/>REST · rule engine · audit · outbox relay"]
+    cs["<b>consumer-service</b><br/><span>&laquo;Spring Boot&raquo;</span><br/>idempotent event handler"]
+    wdb[("<b>workflow DB</b><br/><span>&laquo;PostgreSQL&raquo;</span><br/>documents · audit_events<br/>tenant_rules · outbox")]
+    cdb[("<b>consumer DB</b><br/><span>&laquo;PostgreSQL&raquo;</span><br/>processed_events")]
+    q[["<b>document-approved</b><br/><span>&laquo;AWS SQS&raquo;</span>"]]
+    dlq[["<b>dead-letter queue</b><br/><span>&laquo;AWS SQS&raquo;</span>"]]
+  end
+  actor -->|"HTTP/JSON"| wf
+  wf -->|"reads &amp; writes<br/>JDBC"| wdb
+  wf -->|"relay sends events<br/>AWS SDK"| q
+  q -->|"polls · at-least-once"| cs
+  q -.->|"after maxReceiveCount 3"| dlq
+  cs -->|"dedups &amp; records<br/>JDBC"| cdb
+  classDef person fill:#08427b,stroke:#052e56,color:#fff;
+  classDef container fill:#2f74b5,stroke:#1d4d7c,color:#fff;
+  classDef db fill:#3d6ea5,stroke:#274b73,color:#fff;
+  classDef queue fill:#1f7a6d,stroke:#12564c,color:#fff;
+  class actor person;
+  class wf,cs container;
+  class wdb,cdb db;
+  class q,dlq queue;
+</pre>
+      </div>
+      <figcaption><b>Fig. C4-2</b> — Containers. Send-before-mark on the relay + dedup on the consumer = at-least-once transport, exactly-once effect.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>Level 3</b> Components</p>
+    <h2>Inside <span class="path">workflow-service</span></h2>
+    <p>Zoom into one container. <strong>Components</strong> are the major groupings of code and how they depend on each other — this is the hexagonal / ports-and-adapters structure. Dependencies point inward: infrastructure → application → domain, and the domain depends on nothing.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'13px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
+flowchart TB
+  subgraph wf["workflow-service"]
+    direction TB
+    ctrl["<b>DocumentController</b><br/><span>&laquo;Component · REST&raquo;</span>"]
+    svc["<b>DocumentWorkflowService</b><br/><span>&laquo;Component · @Transactional&raquo;</span>"]
+    uc["<b>Use cases</b><br/><span>&laquo;Component · no Spring&raquo;</span><br/>Create · Submit · Sign · Approve"]
+    dom["<b>Domain</b><br/><span>&laquo;Component · pure&raquo;</span><br/>Rule (sealed) · RuleEvaluator · Document"]
+    jpa["<b>JPA adapters</b><br/><span>&laquo;Component&raquo;</span><br/>implement the repository ports"]
+    relay["<b>Outbox publisher + relay</b><br/><span>&laquo;Component&raquo;</span><br/>implements EventPublisher"]
+  end
+  wdb[("workflow DB<br/><span>&laquo;PostgreSQL&raquo;</span>")]
+  q[["SQS<br/><span>&laquo;document-approved&raquo;</span>"]]
+  ctrl -->|"calls"| svc
+  svc -->|"orchestrates in a tx"| uc
+  uc -->|"depends on ports"| dom
+  uc -->|"ports"| jpa
+  uc -->|"EventPublisher port"| relay
+  jpa -->|"JDBC"| wdb
+  relay -->|"writes outbox"| wdb
+  relay -->|"ships rows"| q
+  classDef container fill:#2f74b5,stroke:#1d4d7c,color:#fff;
+  classDef domain fill:#08427b,stroke:#052e56,color:#fff;
+  classDef db fill:#3d6ea5,stroke:#274b73,color:#fff;
+  classDef queue fill:#1f7a6d,stroke:#12564c,color:#fff;
+  class ctrl,svc,uc,jpa,relay container;
+  class dom domain;
+  class wdb db;
+  class q queue;
+</pre>
+      </div>
+      <figcaption><b>Fig. C4-3</b> — Components. The dark box (Domain) is the one that imports nothing — that is what the <span class="path">grep</span> guard protects.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>Level 4</b> Code</p>
+    <h2>The repository is the fourth level</h2>
+    <p>C4 stops at code because the code <em>is</em> the code — you read it, you don't diagram it. Component <span class="path">Domain</span> is <span class="path">src/main/java/com/mauricio/workflow/domain/</span>; <span class="path">Use cases</span> is <span class="path">application/</span>; the adapters live under <span class="path">infrastructure/</span>. The consumer is its own module, <span class="path">consumer-service/</span>.</p>
+  </section>
+
+  <p class="muted-foot">C4 model · levels 1–3 · Tenant Workflow Engine — pairs with the flow &amp; state diagrams in the architecture reference.</p>
+</div>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });
+</script>
+</body>
+</html>

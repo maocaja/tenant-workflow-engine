@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>Tenant Workflow Engine — Architecture</title>
+<style>
+  :root {
+    --paper: #eef2f7;
+    --surface: #ffffff;
+    --ink: #101820;
+    --muted: #566573;
+    --faint: #7c8896;
+    --line: #d7dee6;
+    --accent: #1b5e8f;
+    --accent-soft: #e6eef6;
+    --commit: #2f7a52;
+    --retry: #a86a1a;
+    --reject: #b23b3b;
+    --fig-bg: #f1f5f9;
+    --fig-line: #cdd7e2;
+    --code-bg: #eef2f7;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0b1016;
+      --surface: #121b24;
+      --ink: #e7edf3;
+      --muted: #97a3af;
+      --faint: #6b7783;
+      --line: #22303c;
+      --accent: #58a6e6;
+      --accent-soft: #14283a;
+      --commit: #64b184;
+      --retry: #d3a04e;
+      --reject: #e07a7a;
+      --fig-bg: #f1f5f9;
+      --fig-line: #cdd7e2;
+      --code-bg: #0c141c;
+    }
+  }
+  :root[data-theme="light"] {
+    --paper: #eef2f7; --surface: #ffffff; --ink: #101820; --muted: #566573; --faint: #7c8896;
+    --line: #d7dee6; --accent: #1b5e8f; --accent-soft: #e6eef6; --commit: #2f7a52;
+    --retry: #a86a1a; --reject: #b23b3b; --fig-bg: #f1f5f9; --fig-line: #cdd7e2; --code-bg: #eef2f7;
+  }
+  :root[data-theme="dark"] {
+    --paper: #0b1016; --surface: #121b24; --ink: #e7edf3; --muted: #97a3af; --faint: #6b7783;
+    --line: #22303c; --accent: #58a6e6; --accent-soft: #14283a; --commit: #64b184;
+    --retry: #d3a04e; --reject: #e07a7a; --fig-bg: #f1f5f9; --fig-line: #cdd7e2; --code-bg: #0c141c;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: clamp(1.5rem, 4vw, 4rem) clamp(1.1rem, 4vw, 2.5rem) 5rem; }
+
+  header.masthead { border-bottom: 2px solid var(--ink); padding-bottom: 1.6rem; margin-bottom: 2.6rem; }
+  .kicker {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 0.9rem;
+  }
+  h1 {
+    font-size: clamp(1.9rem, 5vw, 3rem); line-height: 1.05; margin: 0 0 0.9rem;
+    letter-spacing: -0.02em; text-wrap: balance; font-weight: 680;
+  }
+  .lede { font-size: clamp(1.02rem, 2.1vw, 1.22rem); color: var(--muted); max-width: 60ch; margin: 0; }
+  .thesis {
+    display: flex; flex-wrap: wrap; gap: 0.5rem 1.4rem; margin-top: 1.5rem;
+    font-family: var(--mono); font-size: 0.8rem; color: var(--ink);
+  }
+  .thesis span { display: inline-flex; align-items: center; gap: 0.5rem; }
+  .thesis span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  section { margin: 3.2rem 0 0; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--faint); display: flex; align-items: baseline; gap: 0.7rem; margin: 0 0 0.4rem;
+  }
+  .eyebrow b { color: var(--accent); font-weight: 600; }
+  h2 { font-size: clamp(1.35rem, 3vw, 1.8rem); margin: 0 0 0.6rem; letter-spacing: -0.01em; font-weight: 640; }
+  section > p { color: var(--muted); max-width: 68ch; margin: 0.4rem 0 1.2rem; }
+  section > p strong { color: var(--ink); font-weight: 620; }
+
+  figure { margin: 1.4rem 0 0.4rem; }
+  .fig {
+    background: var(--fig-bg); border: 1px solid var(--fig-line); border-radius: 10px;
+    padding: 1.4rem 1rem; overflow-x: auto;
+  }
+  .fig pre.mermaid { margin: 0; display: flex; justify-content: center; min-width: 520px; }
+  figcaption {
+    font-family: var(--mono); font-size: 0.74rem; color: var(--faint); margin-top: 0.7rem;
+    letter-spacing: 0.02em;
+  }
+  figcaption b { color: var(--muted); font-weight: 600; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
+  .tablewrap { overflow-x: auto; }
+  th, td { text-align: left; padding: 0.7rem 0.8rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--faint); border-bottom: 1.5px solid var(--line); font-weight: 600;
+  }
+  td code, .path { font-family: var(--mono); font-size: 0.82em; }
+  .path { color: var(--accent); background: var(--accent-soft); padding: 0.08em 0.4em; border-radius: 4px; white-space: nowrap; }
+  td:first-child { font-weight: 600; white-space: nowrap; }
+  .note { color: var(--muted); }
+
+  .tag { font-family: var(--mono); font-size: 0.68rem; padding: 0.12em 0.5em; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+  .t-commit { color: var(--commit); border-color: var(--commit); }
+  .t-retry { color: var(--retry); border-color: var(--retry); }
+  .t-reject { color: var(--reject); border-color: var(--reject); }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 1.2rem; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem 1.2rem; }
+  .card h3 { margin: 0 0 0.4rem; font-size: 0.98rem; }
+  .card p { margin: 0; color: var(--muted); font-size: 0.88rem; }
+  .card .path { font-size: 0.76rem; }
+
+  pre.code {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 0.9rem 1rem; overflow-x: auto; font-family: var(--mono); font-size: 0.82rem;
+    color: var(--ink); line-height: 1.55; margin: 1rem 0 0;
+  }
+  .muted-foot { margin-top: 3.5rem; padding-top: 1.4rem; border-top: 1px solid var(--line); color: var(--faint); font-size: 0.82rem; font-family: var(--mono); }
+  a { color: var(--accent); }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="kicker">Architecture Reference · Learning Lab</p>
+    <h1>Tenant Workflow Engine</h1>
+    <p class="lede">A billing-document workflow shared across many clients, where the rules that differ per client are <em>data, not code</em>, every state change writes an immutable audit record, and approvals leave the process as events another service consumes.</p>
+    <div class="thesis">
+      <span>Rules are rows, not <code>if</code>s</span>
+      <span>Every transition is audited</span>
+      <span>Domain has zero Spring imports</span>
+      <span>Events cross services exactly-once in effect</span>
+    </div>
+  </header>
+
+  <section>
+    <p class="eyebrow"><b>01</b> Ports &amp; Adapters</p>
+    <h2>A pure core, technology at the edges</h2>
+    <p>The <strong>domain</strong> and the <strong>use cases</strong> know nothing about Spring, JPA, HTTP, or SQS — they depend only on <strong>ports</strong> (interfaces). Infrastructure <strong>adapters</strong> implement those ports. That inversion is what lets the core be unit-tested with hand-rolled fakes, no <code>ApplicationContext</code> to boot.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'13px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
+flowchart TB
+  subgraph INFRA["INFRASTRUCTURE · Spring"]
+    REST["REST · DocumentController"]
+    TX["DocumentWorkflowService<br/>@Transactional"]
+    JPA["JPA adapters<br/>JpaDocumentRepository · JpaAuditRepository · JpaTenantRules"]
+    OUT["OutboxEventPublisher"]
+  end
+  subgraph APP["APPLICATION · no Spring"]
+    UC["Use cases<br/>CreateDraft · Submit · Sign · Approve"]
+    subgraph PORTS["Ports (interfaces)"]
+      P1["DocumentRepository"]
+      P2["AuditRepository"]
+      P3["TenantRules"]
+      P4["EventPublisher"]
+    end
+  end
+  subgraph DOM["DOMAIN · zero Spring imports"]
+    D1["Document · DocumentStatus"]
+    D2["Rule (sealed) · RuleEvaluator"]
+    D3["AuditEvent · DomainEvent"]
+  end
+  REST --> TX --> UC
+  UC --> PORTS
+  UC --> DOM
+  JPA -. implements .-> P1
+  JPA -. implements .-> P2
+  JPA -. implements .-> P3
+  OUT -. implements .-> P4
+  classDef dom fill:#e6eef6,stroke:#1b5e8f,color:#0d2b45;
+  class D1,D2,D3 dom;
+</pre>
+      </div>
+      <figcaption><b>Fig. 1</b> — Dependencies point inward. Adapters depend on ports; the domain depends on nothing. Guard: <span class="path">grep -r org.springframework src/main/java/**/domain/</span> returns nothing.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>02</b> State machine</p>
+    <h2>Four states, one rejection branch</h2>
+    <p>Each arrow runs the same path: <strong>evaluate the tenant's rules for that gate → transition → write an audit event</strong>. Rules are scoped per <em>gate</em>, so an <code>ApprovalGate</code> (signatures required) is checked at <em>approve</em>, not at <em>submit</em> — when the signatures don't exist yet.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'13px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573'}}}%%
+stateDiagram-v2
+  [*] --> DRAFT
+  DRAFT --> SUBMITTED: submit · rules(SUBMIT) pass
+  DRAFT --> REJECTED: submit · rules fail
+  SUBMITTED --> SUBMITTED: sign · +1 signature
+  SUBMITTED --> APPROVED: approve · rules(APPROVE) pass
+  SUBMITTED --> REJECTED: approve · rules fail
+  APPROVED --> ARCHIVED
+  REJECTED --> [*]
+  ARCHIVED --> [*]
+</pre>
+      </div>
+      <figcaption><b>Fig. 2</b> — <code>APPROVED</code> also emits a <code>DocumentApproved</code> event into the outbox, in the same transaction as the status change.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>03</b> The distributed path</p>
+    <h2>From an approval to a second service — without losing or double-counting</h2>
+    <p>Approving does three writes in <strong>one database transaction</strong>: the document, the audit event, and an <strong>outbox</strong> row. Because the event is a row in the same database, there is no dual-write gap. A relay ships outbox rows to SQS <em>after</em> commit (at-least-once); the consumer dedups on the event id so the effect is exactly-once. A message that keeps failing lands in the dead-letter queue.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'13px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
+flowchart LR
+  subgraph WF["workflow-service"]
+    direction TB
+    AP["approve() · @Transactional"]
+    DOCU[("documents")]
+    AUD[("audit_events<br/>REQUIRES_NEW")]
+    OB[("outbox")]
+    RELAY["OutboxRelay<br/>@Scheduled"]
+    AP --> DOCU
+    AP --> AUD
+    AP --> OB
+    RELAY -->|"read unpublished"| OB
+  end
+  Q[["SQS<br/>document-approved"]]
+  subgraph CS["consumer-service"]
+    direction TB
+    POLL["ApprovalConsumer<br/>poll()"]
+    PE[("processed_events<br/>dedup by eventId")]
+    POLL --> PE
+  end
+  DLQ[["dead-letter queue"]]
+  RELAY -->|"send · then mark published"| Q
+  Q -->|"at-least-once"| POLL
+  POLL -. "fail × 3" .-> DLQ
+  classDef commit fill:#e6f4ec,stroke:#2f7a52,color:#14532d;
+  classDef audit fill:#fdf1de,stroke:#a86a1a,color:#7a4d05;
+  classDef dlq fill:#fbe6e6,stroke:#b23b3b,color:#7a1f1f;
+  class DOCU,OB,PE commit;
+  class AUD audit;
+  class DLQ dlq;
+</pre>
+      </div>
+      <figcaption><b>Fig. 3</b> — <span class="tag t-commit">atomic in one tx</span> &nbsp; <span class="tag t-audit" style="color:var(--retry);border:1px solid var(--retry);border-radius:999px;padding:0.12em 0.5em;font-family:var(--mono);font-size:0.68rem">survives rollback</span> &nbsp; <span class="tag t-reject">poison → DLQ</span></figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>04</b> Study map</p>
+    <h2>Where each concept lives — and the one-line answer</h2>
+    <p>Every mechanism is observable in the code and rehearsed in <span class="path">LEARNINGS.md</span>. This is the map from an interview question to the file that answers it.</p>
+    <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Concept</th><th>Where it lives</th><th>The point</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Sealed types &amp; exhaustiveness</td>
+          <td><span class="path">domain/Rule.java</span><br><span class="path">RuleEvaluator.java</span></td>
+          <td class="note">A <code>switch</code> with record patterns over a sealed interface — the compiler refuses to build if a rule variant is unhandled.</td>
+        </tr>
+        <tr>
+          <td>Open/closed — rules as data</td>
+          <td><span class="path">JpaTenantRules.java</span><br><span class="path">V2__seed_demo_tenants.sql</span></td>
+          <td class="note">A new client is rows in <code>tenant_rules</code>, not a code change. Rules are scoped by <code>Gate</code>.</td>
+        </tr>
+        <tr>
+          <td>Interface change breaks callers <em>and</em> implementers</td>
+          <td><span class="path">LEARNINGS.md #5</span></td>
+          <td class="note">Adding a param to a port broke the caller and the test fake — the compiler finds both, one build phase at a time.</td>
+        </tr>
+        <tr>
+          <td>The N+1 problem</td>
+          <td><span class="path">DocumentQueryService.java</span><br><span class="path">DocumentListingN1Test.java</span></td>
+          <td class="note">Measured with <code>getPrepareStatementCount()</code>: 12 docs → 13 statements; a <code>join fetch</code> → 1.</td>
+        </tr>
+        <tr>
+          <td>Transaction propagation</td>
+          <td><span class="path">JpaAuditRepository.java</span><br><span class="path">AuditSurvivesRollbackTest.java</span></td>
+          <td class="note"><code>REQUIRES_NEW</code> commits the audit in its own tx, so it survives a business rollback.</td>
+        </tr>
+        <tr>
+          <td>The dual-write problem / outbox</td>
+          <td><span class="path">OutboxEventPublisher.java</span><br><span class="path">OutboxRelay.java</span></td>
+          <td class="note">Event becomes a row in the same tx; a relay ships it later. At-least-once, no lost or phantom events.</td>
+        </tr>
+        <tr>
+          <td>Idempotent consumption &amp; DLQ</td>
+          <td><span class="path">consumer-service/ApprovalConsumer.java</span><br><span class="path">IdempotencyTest.java</span></td>
+          <td class="note">Dedup by event id; record-then-delete; never delete on failure → redrive to DLQ. Exactly-once in effect.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>05</b> Target topology</p>
+    <h2>Where it runs on AWS</h2>
+    <p>Locally the same code runs against <strong>Colima</strong> (Postgres) and <strong>LocalStack</strong> (SQS). In the cloud, only the endpoints change: containers on <strong>ECS Fargate</strong>, managed <strong>RDS Postgres</strong>, real <strong>SQS</strong> with a redrive policy onto a DLQ. Nothing in the application code is AWS-specific beyond the SQS client's endpoint.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'13px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
+flowchart LR
+  U["Client / API caller"] --> ALB["Application Load Balancer"]
+  ALB --> E1["ECS Fargate<br/>workflow-service"]
+  E1 --> R1[("RDS Postgres<br/>workflow")]
+  E1 -->|"relay"| SQS[["SQS · document-approved"]]
+  SQS --> E2["ECS Fargate<br/>consumer-service"]
+  SQS -. "maxReceiveCount 3" .-> DLQ[["SQS · DLQ"]]
+  E2 --> R2[("RDS Postgres<br/>consumer")]
+  classDef dlq fill:#fbe6e6,stroke:#b23b3b,color:#7a1f1f;
+  class DLQ dlq;
+</pre>
+      </div>
+      <figcaption><b>Fig. 4</b> — Deploy target (Phase F). Local dev mirrors this with LocalStack + Colima; teardown keeps cost near zero.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>06</b> Run it</p>
+    <h2>Two services, one broker, two databases</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>Infrastructure</h3>
+        <p><code>colima start</code> · Postgres on <span class="path">:55432</span> (dbs <code>workflow</code> + <code>consumer</code>) · LocalStack SQS on <span class="path">:4566</span>.</p>
+      </div>
+      <div class="card">
+        <h3>Producer</h3>
+        <p><span class="path">gradlew bootRun --args=--spring.profiles.active=local</span> → REST on <span class="path">:8080</span>.</p>
+      </div>
+      <div class="card">
+        <h3>Consumer</h3>
+        <p><span class="path">gradlew :consumer-service:bootRun</span> → polls SQS on <span class="path">:8081</span>.</p>
+      </div>
+    </div>
+    <pre class="code"># the flow, over HTTP
+POST /api/documents            → DRAFT
+POST /api/documents/{id}/submit    → rules(SUBMIT) → SUBMITTED | REJECTED
+POST /api/documents/{id}/signatures  → +1 signature
+POST /api/documents/{id}/approve   → rules(APPROVE) → APPROVED (+ outbox event) | REJECTED
+GET  /api/documents/{id}       → document + full audit history</pre>
+  </section>
+
+  <p class="muted-foot">Tenant Workflow Engine · Java 21 · Spring Boot 3.5 · Postgres · SQS &nbsp;—&nbsp; a lab built to make senior-level mechanisms observable, not just described.</p>
+</div>
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });
+</script>
+</body>
+</html>
