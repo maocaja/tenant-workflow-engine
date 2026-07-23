@@ -43,7 +43,7 @@
   section > p strong { color:var(--ink); font-weight:620; }
   figure { margin:1.4rem 0 0.4rem; }
   .fig { background:var(--fig-bg); border:1px solid var(--fig-line); border-radius:10px; padding:1.4rem 1rem; overflow-x:auto; }
-  .fig pre.mermaid { margin:0; display:block; text-align:center; }
+  .fig pre.mermaid { margin:0; display:block; text-align:left; }
   .fig svg { max-width:none !important; height:auto; }
   figcaption { font-family:var(--mono); font-size:0.74rem; color:var(--faint); margin-top:0.7rem; }
   figcaption b { color:var(--muted); font-weight:600; }
@@ -97,7 +97,7 @@ flowchart TB
   subgraph INFRA["INFRAESTRUCTURA · Spring"]
     REST["REST · DocumentController"]
     TX["DocumentWorkflowService<br/>@Transactional"]
-    JPA["Adaptadores JPA<br/>JpaDocumentRepository · JpaAuditRepository"]
+    JPA["Adaptadores JPA"]
     OUT["OutboxEventPublisher"]
   end
   subgraph APP["APLICACIÓN · sin Spring"]

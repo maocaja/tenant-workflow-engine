@@ -97,7 +97,7 @@
     background: var(--fig-bg); border: 1px solid var(--fig-line); border-radius: 10px;
     padding: 1.4rem 1rem; overflow-x: auto;
   }
-  .fig pre.mermaid { margin: 0; display: block; text-align: center; }
+  .fig pre.mermaid { margin: 0; display: block; text-align: left; }
   .fig svg { max-width: none !important; height: auto; }
   figcaption {
     font-family: var(--mono); font-size: 0.74rem; color: var(--faint); margin-top: 0.7rem;
@@ -163,7 +163,7 @@ flowchart TB
   subgraph INFRA["INFRASTRUCTURE · Spring"]
     REST["REST · DocumentController"]
     TX["DocumentWorkflowService<br/>@Transactional"]
-    JPA["JPA adapters<br/>JpaDocumentRepository · JpaAuditRepository · JpaTenantRules"]
+    JPA["JPA adapters"]
     OUT["OutboxEventPublisher"]
   end
   subgraph APP["APPLICATION · no Spring"]
