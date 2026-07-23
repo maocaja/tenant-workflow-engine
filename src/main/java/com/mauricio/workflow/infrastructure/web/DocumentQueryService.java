@@ -25,10 +25,16 @@ public class DocumentQueryService {
     }
 
     // Naive listing: each document's audit history is lazy-loaded on access,
-    // so N documents trigger 1 + N queries. This is the N+1 surface (use case #3);
-    // measured and fixed in a dedicated step.
+    // so N documents trigger 1 + N queries. This is the N+1 surface (use case #3).
     public List<DocumentWithHistory> all() {
         return documents.findAll().stream()
+                .map(DocumentWithHistory::from)
+                .toList();
+    }
+
+    // Single-statement listing: the audit history is fetch-joined up front.
+    public List<DocumentWithHistory> allFetched() {
+        return documents.findAllWithAudit().stream()
                 .map(DocumentWithHistory::from)
                 .toList();
     }
