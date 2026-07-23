@@ -438,6 +438,55 @@ green compile after fixing the first isn't proof you'd found them all.
 
 ---
 
+## Day 3 — Persistence and the N+1 problem
+
+### 6. Counting SQL statements to prove the N+1 when listing documents with history
+
+**Setup:** `GET /api/documents` returns every document with its audit history. The mapping
+reads each document's lazy `auditEvents` collection. With Hibernate statistics on, seed **N**
+documents (each with ≥1 audit event), reset the counter, call the naive listing, and read
+`Statistics.getPrepareStatementCount()`. Then add an `@EntityGraph(attributePaths =
+"auditEvents")` listing and count again.
+
+**Prediction:** (mine — revisit in the study session)
+- Naive listing over N documents fires **1 + N** statements (1 to load the documents, then 1
+  per document to lazy-load its audit collection).
+- With the entity graph it drops to **1** statement (a single left join, roots de-duplicated).
+
+**Observed:** measured with Hibernate `Statistics.getPrepareStatementCount()`:
+
+```
+>>> naive listing of 12 documents used 13 statements
+>>> fetch-joined listing of 7 documents used 1 statements
+```
+
+Naive = **13 for 12 documents** = exactly `1 + N`. Fetch-joined = **1**, flat. Prediction held.
+
+**Takeaway:** the N+1 is not a query that is *slow*, it is a *count* of queries that grows
+with the data. The lazy `@OneToMany` makes each `document.getAuditEvents()` a separate
+`select`, so a list endpoint that reads the collection per row does 1 query to load the roots
+plus 1 per root — invisible on 2 rows in a demo, fatal on 10,000 in production. The fix is a
+single `left join fetch ... distinct`: one statement loads roots and children together, and
+`distinct` collapses the roots that the join multiplied. The lever is *how many round-trips to
+the database*, and I can prove the fix with a number (`getPrepareStatementCount()`), not by
+squinting at logs. Trade-off to name out loud: fetch-joining a collection can't be paginated
+at the DB (the join multiplies rows), so for large collections you reach for `@BatchSize` or a
+second batched query instead — the join fetch wins when the collection per root is small and
+bounded, which an audit trail is.
+
+**How I'd say it in an interview (≤90s):**
+N+1 is when loading N things costs 1 query for the list plus 1 more for each item's lazy
+relationship — N+1 round-trips instead of one. I hit it listing documents with their audit
+history: the audit collection is a lazy `@OneToMany`, so building the response touched it once
+per document. I proved it with Hibernate statistics — 12 documents produced 13 statements,
+exactly 1+N. The fix was one JPQL `left join fetch` with `distinct`, which loads everything in
+a single statement; re-measured, the same listing dropped to 1. The nuance I'd add is that a
+fetch-join can't be paginated because the join multiplies rows, so for big child collections
+I'd use `@BatchSize` or a separate batched load instead. Here the audit trail per document is
+small and bounded, so the join fetch is the right call.
+
+---
+
 <!--
 TEMPLATE — copy this block for each new experiment.
 
