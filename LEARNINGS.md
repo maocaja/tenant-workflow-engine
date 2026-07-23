@@ -580,6 +580,49 @@ commit, which is slow and barely supported anywhere.
 
 ---
 
+## Day 3 — Idempotent consumption across services
+
+### 9. Consuming approval events exactly-once in effect (idempotency + DLQ)
+
+**Setup:** A second service (`consumer-service`, its own module and its own `consumer`
+database) polls the SQS queue the relay ships to. Each message carries an `eventId` attribute.
+`ApprovalConsumer.handle(eventId, body)` checks `processed_events` for that id: if present it is
+a no-op, otherwise it records the id and does the work. The message is deleted only *after*
+handling; on failure it is left on the queue, redelivered, and after `maxReceiveCount` (3) moved
+to the dead-letter queue by the redrive policy.
+
+**Prediction:** (mine — revisit in the study session) calling `handle` twice with the same
+`eventId` does the work once (`true` then `false`) and leaves a single `processed_events` row;
+a message sent to SQS is received, handled, and recorded end to end.
+
+**Observed:** both green. First `handle` returned true and inserted one row; the second
+returned false and inserted nothing. The e2e test sent a message to SQS, `poll()` received it,
+handled it, deleted it, and `processed_events` held the row.
+
+**Takeaway:** at-least-once delivery (from the outbox relay, and from SQS itself, which can
+redeliver) means a consumer *will* see duplicates — so correctness can't depend on each message
+arriving once; it has to come from the *consumer* being idempotent. The pattern is a dedup key
+carried with the message (here the event id) and a record of keys already handled, checked
+before doing the work. Two ordering rules make it safe: record-then-delete (delete only after
+the effect is durable, so a crash before delete just causes a harmless redelivery that the
+dedup catches), and never delete on failure (so a poison message is retried and, past
+`maxReceiveCount`, parked in the DLQ instead of blocking the queue or being lost). The DLQ is
+the escape hatch that keeps one bad message from stalling everything while preserving it for
+inspection. Net effect: delivery is at-least-once, but the *observable outcome* is exactly-once.
+
+**How I'd say it in an interview (≤90s):**
+In a queue-based system delivery is at-least-once — the broker can redeliver, and an outbox
+relay can resend after a crash — so a consumer has to assume it'll see the same message more
+than once. I make the consumer idempotent: every event carries an id, and before doing the work
+I check a processed-events table for that id; if it's there, I skip. Two rules keep it correct:
+I only delete the message after the effect is committed, so a crash in between just causes a
+redelivery that the dedup absorbs; and I never delete a message that failed to process, so it
+gets retried and, after a few attempts, the redrive policy moves it to a dead-letter queue
+where it can't block the others and I can inspect it. So the transport is at-least-once but the
+business effect is exactly-once.
+
+---
+
 <!--
 TEMPLATE — copy this block for each new experiment.
 
