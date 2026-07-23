@@ -536,6 +536,50 @@ its connection while the new one borrows a second, so under load you can exhaust
 
 ---
 
+## Day 3 — The dual-write problem and the outbox
+
+### 8. Writing the event to an outbox in the business transaction
+
+**Setup:** On approval the service must do two things: persist the APPROVED document and
+publish a `DocumentApproved` event to a broker. Those are two different systems, so they cannot
+share a transaction. Instead of publishing to the broker inline, `OutboxEventPublisher` inserts
+a row into an `outbox` table using the caller's transaction (default REQUIRED). A separate
+relay ships unpublished rows to the broker later.
+
+**Prediction:** (mine — revisit in the study session) approving writes exactly one unpublished
+`DocumentApproved` outbox row, atomically with the document and audit. If the approval
+transaction rolled back, there would be no row.
+
+**Observed:** integration test green — after approving, `outbox` holds one row for the
+document, `type = "DocumentApproved"`, `published_at = null`, payload containing the document
+id. (Storing the pre-serialized JSON string into a `jsonb` column via
+`@JdbcTypeCode(SqlTypes.JSON)` worked without double-encoding.)
+
+**Takeaway:** the dual-write problem is that a write to the database and a publish to a broker
+can't be made atomic — whichever happens second can fail after the first succeeded, so you
+either lose events (DB commits, publish crashes) or emit phantom events (publish succeeds, DB
+rolls back). The outbox sidesteps it by turning the two-system write into a **one-system
+write**: the event becomes a row in the *same* database, captured in the *same* transaction as
+the business change, so it inherits that transaction's atomicity. Delivery to the broker is
+then a *separate* concern handled by a relay reading the table — which gives **at-least-once**
+delivery (the relay can crash after sending but before marking the row published, so it may
+resend; consumers must therefore be idempotent). The trade-off is added latency (poll interval)
+and the need for that relay; the alternative, a distributed/XA transaction across DB and
+broker, is slow, poorly supported, and something almost nobody runs in practice.
+
+**How I'd say it in an interview (≤90s):**
+The dual-write problem: on approval I need to update the database and publish an event, but
+they're two systems and can't share a transaction, so a crash between them either loses the
+event or publishes one for a change that rolled back. The outbox pattern fixes it by writing
+the event as a row in the same database, in the same transaction as the business change — now
+it's a single atomic write. A separate relay polls the outbox and ships rows to the broker,
+marking them published. That decouples the business commit from delivery and gives
+at-least-once semantics: the relay might resend after a crash, so the consumer has to be
+idempotent. The cost is a bit of latency and the relay process, but it avoids XA/two-phase
+commit, which is slow and barely supported anywhere.
+
+---
+
 <!--
 TEMPLATE — copy this block for each new experiment.
 

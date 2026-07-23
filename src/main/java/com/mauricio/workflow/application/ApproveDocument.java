@@ -2,6 +2,7 @@ package com.mauricio.workflow.application;
 
 import com.mauricio.workflow.application.port.AuditRepository;
 import com.mauricio.workflow.application.port.DocumentRepository;
+import com.mauricio.workflow.application.port.EventPublisher;
 import com.mauricio.workflow.application.port.TenantRules;
 import com.mauricio.workflow.domain.*;
 
@@ -16,17 +17,20 @@ public class ApproveDocument {
     private final DocumentRepository documentRepository;
     private final TenantRules tenantRules;
     private final AuditRepository auditRepository;
+    private final EventPublisher eventPublisher;
     private final RuleEvaluator ruleEvaluator;
     private final Clock clock;
 
     public ApproveDocument(DocumentRepository documentRepository,
                            TenantRules tenantRules,
                            AuditRepository auditRepository,
+                           EventPublisher eventPublisher,
                            RuleEvaluator ruleEvaluator,
                            Clock clock) {
         this.documentRepository = documentRepository;
         this.tenantRules = tenantRules;
         this.auditRepository = auditRepository;
+        this.eventPublisher = eventPublisher;
         this.ruleEvaluator = ruleEvaluator;
         this.clock = clock;
     }
@@ -65,6 +69,16 @@ public class ApproveDocument {
                 reason,
                 clock.instant()));
 
-        return documentRepository.save(document.withStatus(newStatus));
+        Document saved = documentRepository.save(document.withStatus(newStatus));
+
+        if (!rejected) {
+            eventPublisher.publish(new DocumentApproved(
+                    document.id(),
+                    document.tenantId(),
+                    actor,
+                    clock.instant()));
+        }
+
+        return saved;
     }
 }

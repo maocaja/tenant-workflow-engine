@@ -2,6 +2,7 @@ package com.mauricio.workflow.application;
 
 import com.mauricio.workflow.application.port.AuditRepository;
 import com.mauricio.workflow.application.port.DocumentRepository;
+import com.mauricio.workflow.application.port.EventPublisher;
 import com.mauricio.workflow.application.port.TenantRules;
 import com.mauricio.workflow.domain.*;
 
@@ -33,10 +34,11 @@ class ApproveDocumentTest {
     private final FakeDocumentRepository documents = new FakeDocumentRepository();
     private final CapturingAuditRepository audit = new CapturingAuditRepository();
     private final StubTenantRules rules = new StubTenantRules();
+    private final CapturingEventPublisher events = new CapturingEventPublisher();
     private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
 
     private final ApproveDocument approveDocument = new ApproveDocument(
-            documents, rules, audit, new RuleEvaluator(), clock);
+            documents, rules, audit, events, new RuleEvaluator(), clock);
 
     private Document submitted(int signatures) {
         return new Document(
@@ -70,6 +72,22 @@ class ApproveDocumentTest {
                     .get()
                     .extracting(Document::status)
                     .isEqualTo(DocumentStatus.APPROVED);
+        }
+
+        @Test
+        @DisplayName("publishes a DocumentApproved event")
+        void publishesApprovedEvent() {
+            Document doc = submitted(2);
+            documents.store(doc);
+            rules.set(new ApprovalGate(2));
+
+            approveDocument.approve(doc.id(), "beto");
+
+            assertThat(events.published).hasSize(1);
+            assertThat(events.published.get(0))
+                    .isInstanceOf(DocumentApproved.class)
+                    .extracting(e -> ((DocumentApproved) e).documentId())
+                    .isEqualTo(doc.id());
         }
 
         @Test
@@ -110,6 +128,18 @@ class ApproveDocumentTest {
             assertThat(event.from()).isEqualTo(DocumentStatus.SUBMITTED);
             assertThat(event.to()).isEqualTo(DocumentStatus.REJECTED);
             assertThat(event.reason()).contains("2").contains("0");
+        }
+
+        @Test
+        @DisplayName("publishes no event when rejected")
+        void publishesNothingOnRejection() {
+            Document doc = submitted(0);
+            documents.store(doc);
+            rules.set(new ApprovalGate(2));
+
+            approveDocument.approve(doc.id(), "beto");
+
+            assertThat(events.published).isEmpty();
         }
     }
 
@@ -200,6 +230,15 @@ class ApproveDocumentTest {
         @Override
         public List<Rule> forTenant(UUID tenantId, Gate gate) {
             return rules;
+        }
+    }
+
+    private static final class CapturingEventPublisher implements EventPublisher {
+        private final List<DomainEvent> published = new ArrayList<>();
+
+        @Override
+        public void publish(DomainEvent event) {
+            published.add(event);
         }
     }
 }

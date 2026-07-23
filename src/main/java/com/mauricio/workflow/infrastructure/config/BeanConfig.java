@@ -3,6 +3,7 @@ package com.mauricio.workflow.infrastructure.config;
 import com.mauricio.workflow.application.*;
 import com.mauricio.workflow.application.port.AuditRepository;
 import com.mauricio.workflow.application.port.DocumentRepository;
+import com.mauricio.workflow.application.port.EventPublisher;
 import com.mauricio.workflow.application.port.TenantRules;
 import com.mauricio.workflow.domain.RuleEvaluator;
 import org.springframework.context.annotation.Bean;
@@ -36,8 +37,9 @@ public class BeanConfig {
 
     @Bean
     ApproveDocument approveDocument(DocumentRepository documents, TenantRules rules,
-                                    AuditRepository audit, RuleEvaluator evaluator, Clock clock) {
-        return new ApproveDocument(documents, rules, audit, evaluator, clock);
+                                    AuditRepository audit, EventPublisher events,
+                                    RuleEvaluator evaluator, Clock clock) {
+        return new ApproveDocument(documents, rules, audit, events, evaluator, clock);
     }
 
     @Bean
