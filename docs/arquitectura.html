@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motor de Workflow Multi-tenant — Arquitectura</title>
+<style>
+  :root {
+    --paper: #eef2f7; --surface: #ffffff; --ink: #101820; --muted: #566573; --faint: #7c8896;
+    --line: #d7dee6; --accent: #1b5e8f; --accent-soft: #e6eef6;
+    --commit: #2f7a52; --retry: #a86a1a; --reject: #b23b3b;
+    --fig-bg: #f1f5f9; --fig-line: #cdd7e2; --code-bg: #eef2f7;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#0b1016; --surface:#121b24; --ink:#e7edf3; --muted:#97a3af; --faint:#6b7783;
+      --line:#22303c; --accent:#58a6e6; --accent-soft:#14283a; --commit:#64b184; --retry:#d3a04e;
+      --reject:#e07a7a; --fig-bg:#f1f5f9; --fig-line:#cdd7e2; --code-bg:#0c141c; }
+  }
+  :root[data-theme="light"] { --paper:#eef2f7; --surface:#ffffff; --ink:#101820; --muted:#566573;
+    --faint:#7c8896; --line:#d7dee6; --accent:#1b5e8f; --accent-soft:#e6eef6; --commit:#2f7a52;
+    --retry:#a86a1a; --reject:#b23b3b; --fig-bg:#f1f5f9; --fig-line:#cdd7e2; --code-bg:#eef2f7; }
+  :root[data-theme="dark"] { --paper:#0b1016; --surface:#121b24; --ink:#e7edf3; --muted:#97a3af;
+    --faint:#6b7783; --line:#22303c; --accent:#58a6e6; --accent-soft:#14283a; --commit:#64b184;
+    --retry:#d3a04e; --reject:#e07a7a; --fig-bg:#f1f5f9; --fig-line:#cdd7e2; --code-bg:#0c141c; }
+
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:940px; margin:0 auto; padding:clamp(1.5rem,4vw,4rem) clamp(1.1rem,4vw,2.5rem) 5rem; }
+  header.masthead { border-bottom:2px solid var(--ink); padding-bottom:1.6rem; margin-bottom:2.6rem; }
+  .kicker { font-family:var(--mono); font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--accent); margin:0 0 0.9rem; }
+  h1 { font-size:clamp(1.9rem,5vw,3rem); line-height:1.05; margin:0 0 0.9rem; letter-spacing:-0.02em; text-wrap:balance; font-weight:680; }
+  .lede { font-size:clamp(1.02rem,2.1vw,1.22rem); color:var(--muted); max-width:60ch; margin:0; }
+  .thesis { display:flex; flex-wrap:wrap; gap:0.5rem 1.4rem; margin-top:1.5rem; font-family:var(--mono); font-size:0.8rem; color:var(--ink); }
+  .thesis span { display:inline-flex; align-items:center; gap:0.5rem; }
+  .thesis span::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--accent); }
+  section { margin:3.2rem 0 0; }
+  .eyebrow { font-family:var(--mono); font-size:0.72rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--faint); display:flex; align-items:baseline; gap:0.7rem; margin:0 0 0.4rem; }
+  .eyebrow b { color:var(--accent); font-weight:600; }
+  h2 { font-size:clamp(1.35rem,3vw,1.8rem); margin:0 0 0.6rem; letter-spacing:-0.01em; font-weight:640; }
+  section > p { color:var(--muted); max-width:68ch; margin:0.4rem 0 1.2rem; }
+  section > p strong { color:var(--ink); font-weight:620; }
+  figure { margin:1.4rem 0 0.4rem; }
+  .fig { background:var(--fig-bg); border:1px solid var(--fig-line); border-radius:10px; padding:1.4rem 1rem; overflow-x:auto; }
+  .fig pre.mermaid { margin:0; display:flex; justify-content:center; min-width:560px; }
+  figcaption { font-family:var(--mono); font-size:0.74rem; color:var(--faint); margin-top:0.7rem; }
+  figcaption b { color:var(--muted); font-weight:600; }
+  table { width:100%; border-collapse:collapse; margin-top:1rem; font-size:0.9rem; }
+  .tablewrap { overflow-x:auto; }
+  th, td { text-align:left; padding:0.7rem 0.8rem; border-bottom:1px solid var(--line); vertical-align:top; }
+  thead th { font-family:var(--mono); font-size:0.68rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--faint); border-bottom:1.5px solid var(--line); font-weight:600; }
+  td code, .path { font-family:var(--mono); font-size:0.82em; }
+  .path { color:var(--accent); background:var(--accent-soft); padding:0.08em 0.4em; border-radius:4px; white-space:nowrap; }
+  td:first-child { font-weight:600; white-space:nowrap; }
+  .note { color:var(--muted); }
+  .tag { font-family:var(--mono); font-size:0.68rem; padding:0.12em 0.5em; border-radius:999px; border:1px solid; white-space:nowrap; }
+  .t-commit { color:var(--commit); border-color:var(--commit); }
+  .t-retry { color:var(--retry); border-color:var(--retry); }
+  .t-reject { color:var(--reject); border-color:var(--reject); }
+  .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:1rem; margin-top:1.2rem; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:1.1rem 1.2rem; }
+  .card h3 { margin:0 0 0.4rem; font-size:0.98rem; }
+  .card p { margin:0; color:var(--muted); font-size:0.88rem; }
+  .card .path { font-size:0.76rem; }
+  pre.code { background:var(--code-bg); border:1px solid var(--line); border-radius:8px; padding:0.9rem 1rem; overflow-x:auto; font-family:var(--mono); font-size:0.82rem; color:var(--ink); line-height:1.55; margin:1rem 0 0; }
+  .muted-foot { margin-top:3.5rem; padding-top:1.4rem; border-top:1px solid var(--line); color:var(--faint); font-size:0.82rem; font-family:var(--mono); }
+  a { color:var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="kicker">Referencia de Arquitectura · Laboratorio</p>
+    <h1>Motor de Workflow Multi-tenant</h1>
+    <p class="lede">Un flujo de facturas compartido por muchos clientes, donde las condiciones que cambian por cliente son <em>datos, no código</em>, cada cambio de estado escribe un registro de auditoría inmutable, y las aprobaciones salen del proceso como eventos que otro servicio consume.</p>
+    <div class="thesis">
+      <span>Las reglas son filas, no <code>if</code>s</span>
+      <span>Cada transición se audita</span>
+      <span>El dominio no importa Spring</span>
+      <span>Los eventos cruzan servicios sin duplicar efecto</span>
+    </div>
+  </header>
+
+  <section>
+    <p class="eyebrow"><b>01</b> Puertos y Adaptadores</p>
+    <h2>Un núcleo puro, la tecnología en los bordes</h2>
+    <p>El <strong>dominio</strong> y los <strong>casos de uso</strong> no saben nada de Spring, JPA, HTTP ni SQS — solo dependen de <strong>puertos</strong> (interfaces). Los <strong>adaptadores</strong> de infraestructura implementan esos puertos. Esa inversión es lo que permite testear el núcleo con <em>fakes</em> a mano, sin arrancar un <code>ApplicationContext</code>.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
+flowchart TB
+  subgraph INFRA["INFRAESTRUCTURA · Spring"]
+    REST["REST · DocumentController"]
+    TX["DocumentWorkflowService<br/>@Transactional"]
+    JPA["Adaptadores JPA<br/>JpaDocumentRepository · JpaAuditRepository"]
+    OUT["OutboxEventPublisher"]
+  end
+  subgraph APP["APLICACIÓN · sin Spring"]
+    UC["Casos de uso<br/>CreateDraft · Submit · Sign · Approve"]
+    subgraph PORTS["Puertos (interfaces)"]
+      P1["DocumentRepository"]
+      P2["AuditRepository"]
+      P3["TenantRules"]
+      P4["EventPublisher"]
+    end
+  end
+  subgraph DOM["DOMINIO · cero imports de Spring"]
+    D1["Document · DocumentStatus"]
+    D2["Rule (sealed) · RuleEvaluator"]
+    D3["AuditEvent · DomainEvent"]
+  end
+  REST --> TX --> UC
+  UC --> PORTS
+  UC --> DOM
+  JPA -. implementa .-> P1
+  JPA -. implementa .-> P2
+  JPA -. implementa .-> P3
+  OUT -. implementa .-> P4
+  classDef dom fill:#e6eef6,stroke:#1b5e8f,color:#0d2b45;
+  class D1,D2,D3 dom;
+</pre>
+      </div>
+      <figcaption><b>Fig. 1</b> — Las dependencias apuntan hacia adentro. Los adaptadores dependen de los puertos; el dominio no depende de nada. Guardián: <span class="path">grep -r org.springframework src/main/java/**/domain/</span> no devuelve nada.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>02</b> Máquina de estados</p>
+    <h2>Cuatro estados, una rama de rechazo</h2>
+    <p>Cada flecha corre el mismo camino: <strong>evalúa las reglas del cliente para ese gate → transiciona → escribe un evento de auditoría</strong>. Las reglas están scopeadas por <em>gate</em>, así que una <code>ApprovalGate</code> (firmas requeridas) se verifica al <em>aprobar</em>, no al <em>enviar</em> — cuando las firmas todavía no existen.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573'}}}%%
+stateDiagram-v2
+  [*] --> DRAFT
+  DRAFT --> SUBMITTED: enviar · reglas(SUBMIT) pasan
+  DRAFT --> REJECTED: enviar · reglas fallan
+  SUBMITTED --> SUBMITTED: firmar · +1 firma
+  SUBMITTED --> APPROVED: aprobar · reglas(APPROVE) pasan
+  SUBMITTED --> REJECTED: aprobar · reglas fallan
+  APPROVED --> ARCHIVED
+  REJECTED --> [*]
+  ARCHIVED --> [*]
+</pre>
+      </div>
+      <figcaption><b>Fig. 2</b> — <code>APPROVED</code> también emite un evento <code>DocumentApproved</code> al outbox, en la misma transacción que el cambio de estado.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>03</b> El camino distribuido</p>
+    <h2>De una aprobación a un segundo servicio — sin perder ni duplicar</h2>
+    <p>Aprobar hace tres escrituras en <strong>una sola transacción de base de datos</strong>: el documento, el evento de auditoría y una fila de <strong>outbox</strong>. Como el evento es una fila en la misma base, no hay hueco de <em>dual-write</em>. Un relay envía las filas del outbox a SQS <em>después</em> del commit (al menos una vez); el consumidor deduplica por id de evento, así el efecto es exactamente una vez. Un mensaje que sigue fallando termina en la cola de mensajes muertos (DLQ).</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
+flowchart LR
+  subgraph WF["workflow-service"]
+    direction TB
+    AP["approve()<br/>@Transactional"]
+    DOCU[("documents")]
+    AUD[("audit_events<br/>REQUIRES_NEW")]
+    OB[("outbox")]
+    RELAY["OutboxRelay<br/>@Scheduled"]
+    AP --> DOCU
+    AP --> AUD
+    AP --> OB
+    RELAY -->|"lee no publicadas"| OB
+  end
+  Q[["SQS<br/>document-approved"]]
+  subgraph CS["consumer-service"]
+    direction TB
+    POLL["ApprovalConsumer<br/>poll()"]
+    PE[("processed_events<br/>dedup por eventId")]
+    POLL --> PE
+  end
+  DLQ[["cola de mensajes<br/>muertos (DLQ)"]]
+  RELAY -->|"envía → marca"| Q
+  Q -->|"al menos una vez"| POLL
+  POLL -. "falla × 3" .-> DLQ
+  classDef commit fill:#e6f4ec,stroke:#2f7a52,color:#14532d;
+  classDef audit fill:#fdf1de,stroke:#a86a1a,color:#7a4d05;
+  classDef dlq fill:#fbe6e6,stroke:#b23b3b,color:#7a1f1f;
+  class DOCU,OB,PE commit;
+  class AUD audit;
+  class DLQ dlq;
+</pre>
+      </div>
+      <figcaption><b>Fig. 3</b> — <span class="tag t-commit">atómico en una tx</span> &nbsp; <span class="tag t-retry">sobrevive al rollback</span> &nbsp; <span class="tag t-reject">veneno → DLQ</span></figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>04</b> Mapa de estudio</p>
+    <h2>Dónde vive cada concepto — y la respuesta de una línea</h2>
+    <p>Cada mecanismo es observable en el código y está ensayado en <span class="path">LEARNINGS.md</span>. Este es el mapa de una pregunta de entrevista al archivo que la responde.</p>
+    <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>Concepto</th><th>Dónde vive</th><th>El punto</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Tipos sealed y exhaustividad</td>
+          <td><span class="path">domain/Rule.java</span><br><span class="path">RuleEvaluator.java</span></td>
+          <td class="note">Un <code>switch</code> con record patterns sobre un sealed interface — el compilador no compila si falta manejar una variante.</td>
+        </tr>
+        <tr>
+          <td>Open/closed — reglas como datos</td>
+          <td><span class="path">JpaTenantRules.java</span><br><span class="path">V2__seed_demo_tenants.sql</span></td>
+          <td class="note">Un cliente nuevo son filas en <code>tenant_rules</code>, no código. Las reglas se scopean por <code>Gate</code>.</td>
+        </tr>
+        <tr>
+          <td>Cambiar una interfaz rompe llamadores <em>e</em> implementadores</td>
+          <td><span class="path">LEARNINGS.md #5</span></td>
+          <td class="note">Agregar un parámetro a un puerto rompió el llamador y el fake de test — el compilador los caza, una fase de build a la vez.</td>
+        </tr>
+        <tr>
+          <td>El problema N+1</td>
+          <td><span class="path">DocumentQueryService.java</span><br><span class="path">DocumentListingN1Test.java</span></td>
+          <td class="note">Medido con <code>getPrepareStatementCount()</code>: 12 docs → 13 sentencias; un <code>join fetch</code> → 1.</td>
+        </tr>
+        <tr>
+          <td>Propagación transaccional</td>
+          <td><span class="path">JpaAuditRepository.java</span><br><span class="path">AuditSurvivesRollbackTest.java</span></td>
+          <td class="note"><code>REQUIRES_NEW</code> commitea la auditoría en su propia tx, así sobrevive a un rollback de negocio.</td>
+        </tr>
+        <tr>
+          <td>El problema dual-write / outbox</td>
+          <td><span class="path">OutboxEventPublisher.java</span><br><span class="path">OutboxRelay.java</span></td>
+          <td class="note">El evento se vuelve una fila en la misma tx; un relay lo envía después. Al menos una vez, sin eventos perdidos ni fantasma.</td>
+        </tr>
+        <tr>
+          <td>Consumo idempotente y DLQ</td>
+          <td><span class="path">consumer-service/ApprovalConsumer.java</span><br><span class="path">IdempotencyTest.java</span></td>
+          <td class="note">Dedup por id de evento; grabar-luego-borrar; nunca borrar si falla → redrive a DLQ. Exactamente una vez en efecto.</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>05</b> Topología objetivo</p>
+    <h2>Dónde corre en AWS</h2>
+    <p>Localmente el mismo código corre contra <strong>Colima</strong> (Postgres) y <strong>LocalStack</strong> (SQS). En la nube solo cambian los endpoints: contenedores en <strong>ECS Fargate</strong>, <strong>RDS Postgres</strong> gestionado, <strong>SQS</strong> real con redrive a una DLQ. Nada en el código de la aplicación es específico de AWS más allá del endpoint del cliente SQS.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','primaryColor':'#ffffff','primaryBorderColor':'#1b5e8f','primaryTextColor':'#101820','lineColor':'#566573','clusterBkg':'#f8fafc','clusterBorder':'#cdd7e2'}}}%%
+flowchart LR
+  U["Cliente / API"] --> ALB["Application<br/>Load Balancer"]
+  ALB --> E1["ECS Fargate<br/>workflow-service"]
+  E1 --> R1[("RDS Postgres<br/>workflow")]
+  E1 -->|"relay"| SQS[["SQS · document-approved"]]
+  SQS --> E2["ECS Fargate<br/>consumer-service"]
+  SQS -. "maxReceiveCount 3" .-> DLQ[["SQS · DLQ"]]
+  E2 --> R2[("RDS Postgres<br/>consumer")]
+  classDef dlq fill:#fbe6e6,stroke:#b23b3b,color:#7a1f1f;
+  class DLQ dlq;
+</pre>
+      </div>
+      <figcaption><b>Fig. 4</b> — Objetivo de despliegue (Fase F). El dev local lo espeja con LocalStack + Colima; el <em>teardown</em> deja el costo casi en cero.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>06</b> Cómo correrlo</p>
+    <h2>Dos servicios, un broker, dos bases de datos</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>Infraestructura</h3>
+        <p><code>colima start</code> · Postgres en <span class="path">:55432</span> (dbs <code>workflow</code> + <code>consumer</code>) · LocalStack SQS en <span class="path">:4566</span>.</p>
+      </div>
+      <div class="card">
+        <h3>Productor</h3>
+        <p><span class="path">gradlew bootRun --args=--spring.profiles.active=local</span> → REST en <span class="path">:8080</span>.</p>
+      </div>
+      <div class="card">
+        <h3>Consumidor</h3>
+        <p><span class="path">gradlew :consumer-service:bootRun</span> → hace poll a SQS en <span class="path">:8081</span>.</p>
+      </div>
+    </div>
+    <pre class="code"># el flujo, por HTTP
+POST /api/documents            → DRAFT
+POST /api/documents/{id}/submit    → reglas(SUBMIT) → SUBMITTED | REJECTED
+POST /api/documents/{id}/signatures  → +1 firma
+POST /api/documents/{id}/approve   → reglas(APPROVE) → APPROVED (+ evento outbox) | REJECTED
+GET  /api/documents/{id}       → documento + historial de auditoría completo</pre>
+  </section>
+
+  <p class="muted-foot">Motor de Workflow Multi-tenant · Java 21 · Spring Boot 3.5 · Postgres · SQS &nbsp;—&nbsp; un laboratorio hecho para volver observables los mecanismos de nivel senior, no solo describirlos.</p>
+</div>
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });
+</script>
+</body>
+</html>

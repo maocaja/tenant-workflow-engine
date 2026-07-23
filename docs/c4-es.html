@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Motor de Workflow Multi-tenant — Modelo C4</title>
+<style>
+  :root {
+    --paper:#eef2f7; --surface:#ffffff; --ink:#101820; --muted:#566573; --faint:#7c8896;
+    --line:#d7dee6; --accent:#1b5e8f; --accent-soft:#e6eef6; --fig-bg:#f4f7fb; --fig-line:#cdd7e2;
+    --c4-person:#08427b; --c4-container:#2f74b5; --c4-db:#3d6ea5; --c4-ext:#7a8792; --c4-queue:#1f7a6d;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --paper:#0b1016; --surface:#121b24; --ink:#e7edf3; --muted:#97a3af; --faint:#6b7783;
+      --line:#22303c; --accent:#58a6e6; --accent-soft:#14283a; --fig-bg:#f4f7fb; --fig-line:#cdd7e2; }
+  }
+  :root[data-theme="light"] { --paper:#eef2f7; --surface:#ffffff; --ink:#101820; --muted:#566573;
+    --faint:#7c8896; --line:#d7dee6; --accent:#1b5e8f; --accent-soft:#e6eef6; --fig-bg:#f4f7fb; --fig-line:#cdd7e2; }
+  :root[data-theme="dark"] { --paper:#0b1016; --surface:#121b24; --ink:#e7edf3; --muted:#97a3af;
+    --faint:#6b7783; --line:#22303c; --accent:#58a6e6; --accent-soft:#14283a; --fig-bg:#f4f7fb; --fig-line:#cdd7e2; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:960px; margin:0 auto; padding:clamp(1.5rem,4vw,4rem) clamp(1.1rem,4vw,2.5rem) 5rem; }
+  header.masthead { border-bottom:2px solid var(--ink); padding-bottom:1.5rem; margin-bottom:2.4rem; }
+  .kicker { font-family:var(--mono); font-size:0.72rem; letter-spacing:0.18em; text-transform:uppercase; color:var(--accent); margin:0 0 0.9rem; }
+  h1 { font-size:clamp(1.9rem,5vw,2.9rem); line-height:1.05; margin:0 0 0.8rem; letter-spacing:-0.02em; text-wrap:balance; font-weight:680; }
+  .lede { font-size:clamp(1rem,2vw,1.18rem); color:var(--muted); max-width:62ch; margin:0; }
+  .levels { display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:1.4rem; font-family:var(--mono); font-size:0.74rem; }
+  .levels span { padding:0.25em 0.7em; border:1px solid var(--line); border-radius:999px; color:var(--muted); }
+  .levels span.on { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
+  section { margin:3rem 0 0; }
+  .eyebrow { font-family:var(--mono); font-size:0.72rem; letter-spacing:0.16em; text-transform:uppercase; color:var(--faint); display:flex; align-items:baseline; gap:0.7rem; margin:0 0 0.4rem; }
+  .eyebrow b { color:var(--accent); font-weight:600; }
+  h2 { font-size:clamp(1.3rem,3vw,1.7rem); margin:0 0 0.5rem; letter-spacing:-0.01em; font-weight:640; }
+  section > p { color:var(--muted); max-width:68ch; margin:0.4rem 0 1.1rem; }
+  section > p strong { color:var(--ink); font-weight:620; }
+  figure { margin:1.3rem 0 0.4rem; }
+  .fig { background:var(--fig-bg); border:1px solid var(--fig-line); border-radius:10px; padding:1.4rem 1rem; overflow-x:auto; }
+  .fig pre.mermaid { margin:0; display:flex; justify-content:center; min-width:580px; }
+  figcaption { font-family:var(--mono); font-size:0.74rem; color:var(--faint); margin-top:0.7rem; }
+  figcaption b { color:var(--muted); font-weight:600; }
+  .legend { display:flex; flex-wrap:wrap; gap:0.6rem 1.2rem; margin-top:1.2rem; padding:1rem 1.2rem; background:var(--surface); border:1px solid var(--line); border-radius:10px; }
+  .legend .item { display:inline-flex; align-items:center; gap:0.5rem; font-size:0.82rem; color:var(--muted); }
+  .swatch { width:15px; height:15px; border-radius:3px; flex:none; }
+  .sw-person{background:var(--c4-person);} .sw-container{background:var(--c4-container);}
+  .sw-db{background:var(--c4-db);} .sw-ext{background:var(--c4-ext);} .sw-queue{background:var(--c4-queue);}
+  .muted-foot { margin-top:3.4rem; padding-top:1.3rem; border-top:1px solid var(--line); color:var(--faint); font-size:0.82rem; font-family:var(--mono); }
+  a { color:var(--accent); }
+  .path { font-family:var(--mono); font-size:0.82em; color:var(--accent); background:var(--accent-soft); padding:0.08em 0.4em; border-radius:4px; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="masthead">
+    <p class="kicker">Modelo C4 · notación de Simon Brown</p>
+    <h1>Motor de Workflow — C4</h1>
+    <p class="lede">El mismo sistema en tres niveles de zoom. Cada nivel responde una pregunta distinta, para un lector distinto: el sistema completo en su mundo, las piezas ejecutables dentro de él, y las partes dentro de una pieza.</p>
+    <div class="levels">
+      <span class="on">1 · Contexto</span>
+      <span class="on">2 · Contenedor</span>
+      <span class="on">3 · Componente</span>
+      <span>4 · Código → el repo mismo</span>
+    </div>
+  </header>
+
+  <div class="legend">
+    <span class="item"><span class="swatch sw-person"></span> Persona / actor</span>
+    <span class="item"><span class="swatch sw-container"></span> Contenedor (ejecutable)</span>
+    <span class="item"><span class="swatch sw-db"></span> Base de datos</span>
+    <span class="item"><span class="swatch sw-queue"></span> Cola de mensajes</span>
+    <span class="item"><span class="swatch sw-ext"></span> Sistema externo</span>
+  </div>
+
+  <section>
+    <p class="eyebrow"><b>Nivel 1</b> Contexto del sistema</p>
+    <h2>El sistema en su mundo</h2>
+    <p>El mayor zoom: una caja para toda la plataforma, quién la usa y con qué habla. Un interesado no técnico debería entender esto. Aquí: un <strong>llamador de la API</strong> lleva los documentos por el flujo, y la plataforma <strong>emite eventos de aprobación</strong> que sistemas downstream (pagos, notificaciones) consumen.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
+flowchart TB
+  actor["Llamador de la API<br/>«Persona / sistema cliente»"]
+  sys["<b>Plataforma de Workflow</b><br/>«Sistema de Software»<br/>Aprueba facturas según reglas por<br/>cliente, guarda auditoría inmutable,<br/>emite eventos de aprobación"]
+  down["Consumidores downstream<br/>«Sistema de Software»<br/>ej. pagos, notificaciones"]
+  actor -->|"envía y aprueba<br/>documentos · HTTPS"| sys
+  sys -->|"publica eventos<br/>DocumentApproved"| down
+  classDef person fill:#08427b,stroke:#052e56,color:#fff;
+  classDef sys fill:#2f74b5,stroke:#1d4d7c,color:#fff;
+  classDef ext fill:#7a8792,stroke:#59636c,color:#fff;
+  class actor person;
+  class sys sys;
+  class down ext;
+</pre>
+      </div>
+      <figcaption><b>Fig. C4-1</b> — Contexto. La plataforma es una caja negra; el detalle se oculta a propósito.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>Nivel 2</b> Contenedores</p>
+    <h2>Las piezas ejecutables dentro de la plataforma</h2>
+    <p>Zoom dentro de la caja. Un <strong>contenedor</strong> es algo que corre y guarda estado — un servicio, una base de datos, una cola — cada uno con su tecnología. Esta es la vista más útil para un ingeniero: muestra los dos servicios, sus <strong>bases de datos separadas</strong> y la <strong>cola con su cola de mensajes muertos</strong>. Cada servicio tiene su propia base — nada de esquema compartido.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
+flowchart TB
+  actor["Llamador de la API<br/>«Persona»"]
+  subgraph plat["Plataforma de Workflow"]
+    direction TB
+    wf["<b>workflow-service</b><br/>«Spring Boot»<br/>REST · motor de reglas · auditoría · relay"]
+    cs["<b>consumer-service</b><br/>«Spring Boot»<br/>manejador idempotente de eventos"]
+    wdb[("<b>BD workflow</b><br/>«PostgreSQL»<br/>documents · audit_events<br/>tenant_rules · outbox")]
+    cdb[("<b>BD consumer</b><br/>«PostgreSQL»<br/>processed_events")]
+    q[["<b>document-approved</b><br/>«AWS SQS»"]]
+    dlq[["<b>cola mensajes muertos</b><br/>«AWS SQS»"]]
+  end
+  actor -->|"HTTP/JSON"| wf
+  wf -->|"lee y escribe · JDBC"| wdb
+  wf -->|"relay envía · AWS SDK"| q
+  q -->|"poll · al menos una vez"| cs
+  q -.->|"tras maxReceiveCount 3"| dlq
+  cs -->|"dedup y graba · JDBC"| cdb
+  classDef person fill:#08427b,stroke:#052e56,color:#fff;
+  classDef container fill:#2f74b5,stroke:#1d4d7c,color:#fff;
+  classDef db fill:#3d6ea5,stroke:#274b73,color:#fff;
+  classDef queue fill:#1f7a6d,stroke:#12564c,color:#fff;
+  class actor person;
+  class wf,cs container;
+  class wdb,cdb db;
+  class q,dlq queue;
+</pre>
+      </div>
+      <figcaption><b>Fig. C4-2</b> — Contenedores. Enviar-luego-marcar en el relay + dedup en el consumidor = transporte "al menos una vez", efecto "exactamente una vez".</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>Nivel 3</b> Componentes</p>
+    <h2>Dentro de <span class="path">workflow-service</span></h2>
+    <p>Zoom dentro de un contenedor. Los <strong>componentes</strong> son las agrupaciones grandes de código y cómo dependen entre sí — esta es la estructura hexagonal / puertos-y-adaptadores. Las dependencias apuntan hacia adentro: infraestructura → aplicación → dominio, y el dominio no depende de nada.</p>
+    <figure>
+      <div class="fig">
+<pre class="mermaid">
+%%{init: {'theme':'base','themeVariables':{'fontFamily':'ui-monospace, monospace','fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
+flowchart TB
+  subgraph wf["workflow-service"]
+    direction TB
+    ctrl["<b>DocumentController</b><br/>«Componente · REST»"]
+    svc["<b>DocumentWorkflowService</b><br/>«Componente · @Transactional»"]
+    uc["<b>Casos de uso</b><br/>«Componente · sin Spring»<br/>Create · Submit · Sign · Approve"]
+    dom["<b>Dominio</b><br/>«Componente · puro»<br/>Rule (sealed) · RuleEvaluator"]
+    jpa["<b>Adaptadores JPA</b><br/>«Componente»<br/>implementan los puertos"]
+    relay["<b>Outbox + relay</b><br/>«Componente»<br/>implementa EventPublisher"]
+  end
+  wdb[("BD workflow<br/>«PostgreSQL»")]
+  q[["SQS<br/>«document-approved»"]]
+  ctrl -->|"llama"| svc
+  svc -->|"orquesta en una tx"| uc
+  uc -->|"depende de puertos"| dom
+  uc -->|"puertos"| jpa
+  uc -->|"puerto EventPublisher"| relay
+  jpa -->|"JDBC"| wdb
+  relay -->|"escribe outbox"| wdb
+  relay -->|"envía filas"| q
+  classDef container fill:#2f74b5,stroke:#1d4d7c,color:#fff;
+  classDef domain fill:#08427b,stroke:#052e56,color:#fff;
+  classDef db fill:#3d6ea5,stroke:#274b73,color:#fff;
+  classDef queue fill:#1f7a6d,stroke:#12564c,color:#fff;
+  class ctrl,svc,uc,jpa,relay container;
+  class dom domain;
+  class wdb db;
+  class q queue;
+</pre>
+      </div>
+      <figcaption><b>Fig. C4-3</b> — Componentes. La caja azul oscuro (Dominio) es la que no importa nada — lo que protege el guardián <span class="path">grep</span>.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <p class="eyebrow"><b>Nivel 4</b> Código</p>
+    <h2>El repositorio es el cuarto nivel</h2>
+    <p>C4 se detiene en el código porque el código <em>es</em> el código — se lee, no se diagrama. El componente <span class="path">Dominio</span> es <span class="path">src/main/java/com/mauricio/workflow/domain/</span>; los <span class="path">Casos de uso</span> son <span class="path">application/</span>; los adaptadores viven bajo <span class="path">infrastructure/</span>. El consumidor es su propio módulo, <span class="path">consumer-service/</span>.</p>
+  </section>
+
+  <p class="muted-foot">Modelo C4 · niveles 1–3 · Motor de Workflow Multi-tenant — acompaña a los diagramas de flujo y estados de la referencia de arquitectura.</p>
+</div>
+
+<script type="module">
+import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' });
+</script>
+</body>
+</html>
