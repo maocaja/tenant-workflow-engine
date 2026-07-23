@@ -102,7 +102,7 @@
 %%{init: {'theme':'base','themeVariables':{'fontSize':'13px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
 flowchart TB
   actor["API Caller<br/><span>&laquo;Person / client system&raquo;</span>"]
-  sys["<b>Tenant Workflow Platform</b><br/><span>&laquo;Software System&raquo;</span><br/>Approves billing documents against<br/>per-tenant rules, keeps an immutable<br/>audit trail, emits approval events"]
+  sys["Tenant Workflow Platform<br/><span>&laquo;Software System&raquo;</span><br/>Approves billing documents against<br/>per-tenant rules, keeps an immutable<br/>audit trail, emits approval events"]
   down["Downstream consumers<br/><span>&laquo;Software System&raquo;</span><br/>e.g. payments, notifications"]
   actor -->|"submits &amp; approves<br/>documents · HTTPS"| sys
   sys -->|"publishes<br/>DocumentApproved events"| down
@@ -130,12 +130,12 @@ flowchart TB
   actor["API Caller<br/><span>&laquo;Person&raquo;</span>"]
   subgraph plat["Tenant Workflow Platform"]
     direction TB
-    wf["<b>workflow-service</b><br/><span>&laquo;Spring Boot&raquo;</span><br/>REST · rule engine · audit · outbox relay"]
-    cs["<b>consumer-service</b><br/><span>&laquo;Spring Boot&raquo;</span><br/>idempotent event handler"]
-    wdb[("<b>workflow DB</b><br/><span>&laquo;PostgreSQL&raquo;</span><br/>documents · audit_events<br/>tenant_rules · outbox")]
-    cdb[("<b>consumer DB</b><br/><span>&laquo;PostgreSQL&raquo;</span><br/>processed_events")]
-    q[["<b>document-approved</b><br/><span>&laquo;AWS SQS&raquo;</span>"]]
-    dlq[["<b>dead-letter queue</b><br/><span>&laquo;AWS SQS&raquo;</span>"]]
+    wf["workflow-service<br/><span>&laquo;Spring Boot&raquo;</span><br/>REST · rule engine · audit · outbox relay"]
+    cs["consumer-service<br/><span>&laquo;Spring Boot&raquo;</span><br/>idempotent event handler"]
+    wdb[("workflow DB<br/><span>&laquo;PostgreSQL&raquo;</span><br/>documents · audit_events<br/>tenant_rules · outbox")]
+    cdb[("consumer DB<br/><span>&laquo;PostgreSQL&raquo;</span><br/>processed_events")]
+    q[["document-approved<br/><span>&laquo;AWS SQS&raquo;</span>"]]
+    dlq[["dead-letter queue<br/><span>&laquo;AWS SQS&raquo;</span>"]]
   end
   actor -->|"HTTP/JSON"| wf
   wf -->|"reads &amp; writes<br/>JDBC"| wdb
@@ -168,12 +168,12 @@ flowchart TB
 flowchart TB
   subgraph wf["workflow-service"]
     direction TB
-    ctrl["<b>DocumentController</b><br/><span>&laquo;Component · REST&raquo;</span>"]
-    svc["<b>DocumentWorkflowService</b><br/><span>&laquo;Component · @Transactional&raquo;</span>"]
-    uc["<b>Use cases</b><br/><span>&laquo;Component · no Spring&raquo;</span><br/>Create · Submit · Sign · Approve"]
-    dom["<b>Domain</b><br/><span>&laquo;Component · pure&raquo;</span><br/>Rule (sealed) · RuleEvaluator · Document"]
-    jpa["<b>JPA adapters</b><br/><span>&laquo;Component&raquo;</span><br/>implement the repository ports"]
-    relay["<b>Outbox publisher + relay</b><br/><span>&laquo;Component&raquo;</span><br/>implements EventPublisher"]
+    ctrl["DocumentController<br/><span>&laquo;Component · REST&raquo;</span>"]
+    svc["DocumentWorkflowService<br/><span>&laquo;Component · @Transactional&raquo;</span>"]
+    uc["Use cases<br/><span>&laquo;Component · no Spring&raquo;</span><br/>Create · Submit · Sign · Approve"]
+    dom["Domain<br/><span>&laquo;Component · pure&raquo;</span><br/>Rule (sealed) · RuleEvaluator · Document"]
+    jpa["JPA adapters<br/><span>&laquo;Component&raquo;</span><br/>implement the repository ports"]
+    relay["Outbox publisher + relay<br/><span>&laquo;Component&raquo;</span><br/>implements EventPublisher"]
   end
   wdb[("workflow DB<br/><span>&laquo;PostgreSQL&raquo;</span>")]
   q[["SQS<br/><span>&laquo;document-approved&raquo;</span>"]]
@@ -209,7 +209,7 @@ flowchart TB
 </div>
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: false, htmlLabels: true }, state: { useMaxWidth: false } });
+mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: false, htmlLabels: false }, state: { useMaxWidth: false } });
 </script>
 </body>
 </html>

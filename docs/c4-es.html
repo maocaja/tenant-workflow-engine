@@ -86,7 +86,7 @@
 %%{init: {'theme':'base','themeVariables':{'fontSize':'12px','lineColor':'#566573','primaryTextColor':'#ffffff'}}}%%
 flowchart TB
   actor["Llamador de la API<br/>«Persona / sistema cliente»"]
-  sys["<b>Plataforma de Workflow</b><br/>«Sistema de Software»<br/>Aprueba facturas según reglas por<br/>cliente, guarda auditoría inmutable,<br/>emite eventos de aprobación"]
+  sys["Plataforma de Workflow<br/>«Sistema de Software»<br/>Aprueba facturas según reglas por<br/>cliente, guarda auditoría inmutable,<br/>emite eventos de aprobación"]
   down["Consumidores downstream<br/>«Sistema de Software»<br/>ej. pagos, notificaciones"]
   actor -->|"envía y aprueba<br/>documentos · HTTPS"| sys
   sys -->|"publica eventos<br/>DocumentApproved"| down
@@ -114,12 +114,12 @@ flowchart TB
   actor["Llamador de la API<br/>«Persona»"]
   subgraph plat["Plataforma de Workflow"]
     direction TB
-    wf["<b>workflow-service</b><br/>«Spring Boot»<br/>REST · motor de reglas · auditoría · relay"]
-    cs["<b>consumer-service</b><br/>«Spring Boot»<br/>manejador idempotente de eventos"]
-    wdb[("<b>BD workflow</b><br/>«PostgreSQL»<br/>documents · audit_events<br/>tenant_rules · outbox")]
-    cdb[("<b>BD consumer</b><br/>«PostgreSQL»<br/>processed_events")]
-    q[["<b>document-approved</b><br/>«AWS SQS»"]]
-    dlq[["<b>cola mensajes muertos</b><br/>«AWS SQS»"]]
+    wf["workflow-service<br/>«Spring Boot»<br/>REST · motor de reglas · auditoría · relay"]
+    cs["consumer-service<br/>«Spring Boot»<br/>manejador idempotente de eventos"]
+    wdb[("BD workflow<br/>«PostgreSQL»<br/>documents · audit_events<br/>tenant_rules · outbox")]
+    cdb[("BD consumer<br/>«PostgreSQL»<br/>processed_events")]
+    q[["document-approved<br/>«AWS SQS»"]]
+    dlq[["cola mensajes muertos<br/>«AWS SQS»"]]
   end
   actor -->|"HTTP/JSON"| wf
   wf -->|"lee y escribe · JDBC"| wdb
@@ -152,12 +152,12 @@ flowchart TB
 flowchart TB
   subgraph wf["workflow-service"]
     direction TB
-    ctrl["<b>DocumentController</b><br/>«Componente · REST»"]
-    svc["<b>DocumentWorkflowService</b><br/>«Componente · @Transactional»"]
-    uc["<b>Casos de uso</b><br/>«Componente · sin Spring»<br/>Create · Submit · Sign · Approve"]
-    dom["<b>Dominio</b><br/>«Componente · puro»<br/>Rule (sealed) · RuleEvaluator"]
-    jpa["<b>Adaptadores JPA</b><br/>«Componente»<br/>implementan los puertos"]
-    relay["<b>Outbox + relay</b><br/>«Componente»<br/>implementa EventPublisher"]
+    ctrl["DocumentController<br/>«Componente · REST»"]
+    svc["DocumentWorkflowService<br/>«Componente · @Transactional»"]
+    uc["Casos de uso<br/>«Componente · sin Spring»<br/>Create · Submit · Sign · Approve"]
+    dom["Dominio<br/>«Componente · puro»<br/>Rule (sealed) · RuleEvaluator"]
+    jpa["Adaptadores JPA<br/>«Componente»<br/>implementan los puertos"]
+    relay["Outbox + relay<br/>«Componente»<br/>implementa EventPublisher"]
   end
   wdb[("BD workflow<br/>«PostgreSQL»")]
   q[["SQS<br/>«document-approved»"]]
@@ -194,7 +194,7 @@ flowchart TB
 
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: false, htmlLabels: true }, state: { useMaxWidth: false } });
+mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: false, htmlLabels: false }, state: { useMaxWidth: false } });
 </script>
 </body>
 </html>
