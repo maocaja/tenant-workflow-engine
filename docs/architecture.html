@@ -98,7 +98,7 @@
     padding: 1.4rem 1rem; overflow-x: auto;
   }
   .fig pre.mermaid { margin: 0; display: block; text-align: left; }
-  .fig svg { max-width: none !important; height: auto; }
+  .fig svg { max-width: 100%; height: auto; }
   figcaption {
     font-family: var(--mono); font-size: 0.74rem; color: var(--faint); margin-top: 0.7rem;
     letter-spacing: 0.02em;
@@ -136,6 +136,8 @@
   .muted-foot { margin-top: 3.5rem; padding-top: 1.4rem; border-top: 1px solid var(--line); color: var(--faint); font-size: 0.82rem; font-family: var(--mono); }
   a { color: var(--accent); }
   .fig svg, .fig svg * { box-sizing: content-box; }
+  figure { width: min(1400px, 94vw); margin-left: 50%; transform: translateX(-50%); }
+  .fig { overflow-x: hidden; }
 </style>
 
 <div class="wrap">
@@ -366,7 +368,7 @@ GET  /api/documents/{id}       → document + full audit history</pre>
 </div>
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: false, htmlLabels: false }, state: { useMaxWidth: false } });
+mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: true, htmlLabels: false }, state: { useMaxWidth: true } });
 </script>
 </body>
 </html>

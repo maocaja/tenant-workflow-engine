@@ -52,7 +52,7 @@
   figure { margin: 1.3rem 0 0.4rem; }
   .fig { background: var(--fig-bg); border: 1px solid var(--fig-line); border-radius: 10px; padding: 1.4rem 1rem; overflow-x: auto; }
   .fig pre.mermaid { margin: 0; display: block; text-align: center; }
-  .fig svg { max-width: none !important; height: auto; }
+  .fig svg { max-width: 100%; height: auto; }
   figcaption { font-family: var(--mono); font-size: 0.74rem; color: var(--faint); margin-top: 0.7rem; }
   figcaption b { color: var(--muted); font-weight: 600; }
 
@@ -69,6 +69,8 @@
   a { color: var(--accent); }
   .path { font-family: var(--mono); font-size: 0.82em; color: var(--accent); background: var(--accent-soft); padding: 0.08em 0.4em; border-radius: 4px; }
   .fig svg, .fig svg * { box-sizing: content-box; }
+  figure { width: min(1400px, 94vw); margin-left: 50%; transform: translateX(-50%); }
+  .fig { overflow-x: hidden; }
 </style>
 
 <div class="wrap">
@@ -209,7 +211,7 @@ flowchart TB
 </div>
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: false, htmlLabels: false }, state: { useMaxWidth: false } });
+mermaid.initialize({ startOnLoad: true, securityLevel: 'loose', flowchart: { useMaxWidth: true, htmlLabels: false }, state: { useMaxWidth: true } });
 </script>
 </body>
 </html>
